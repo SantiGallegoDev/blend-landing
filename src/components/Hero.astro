@@ -1,0 +1,109 @@
+---
+import { waLink } from '../data/site';
+const wa = waLink();
+---
+<section class="hero" id="top">
+  <div class="hero-copy">
+    <div class="eyebrow" data-reveal="fade-up">Vol. 01 — Dulce mañana</div>
+    <h1 class="h-hero" data-reveal="fade-up">
+      respira <span class="accent">despacio,</span><br />
+      sabe a <span class="underline">domingo.</span>
+    </h1>
+    <p class="body-lg" style="margin-top: 28px;" data-reveal="fade-up">
+      Bebidas y dulces que cuidan sin pedir nada a cambio.
+      Hechos despacio en Armenia, Quindío, para los días
+      que también quieren serlo.
+    </p>
+    <div class="hero-ctas" data-reveal-children>
+      <a class="btn btn-fill" href={wa} target="_blank" rel="noopener">Pedir por WhatsApp</a>
+      <a class="btn" href="#rituales">Nuestro ritual ↘</a>
+    </div>
+    <div class="hero-chips" data-reveal-children>
+      <span class="chip"><span class="dot"></span>Sin azúcar añadido</span>
+      <span class="chip"><span class="dot dot-blush"></span>Hecho en Armenia, Quindío</span>
+      <span class="chip"><span class="dot dot-berry"></span>Pedido por WhatsApp</span>
+    </div>
+  </div>
+
+  <div class="hero-art">
+    <div class="img img-blush hero-art-main breath" data-reveal="blur-in">
+      <img
+        src="/images/hero-pink-cloud.png"
+        alt="Mujer junto a la ventana sosteniendo Pink Cloud con vista al paisaje cafetero"
+        class="img-fill"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </div>
+    <div class="hero-art-cap" data-reveal="fade-up">
+      <div class="eyebrow">Now serving</div>
+      <div class="serif" style="font-size:26px; margin-top:4px;">Pink Cloud · 330ml</div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding: clamp(40px, 6vw, 90px) var(--pad-x) clamp(40px, 5vw, 80px);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: center;
+  }
+  .hero-ctas {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+  .hero-ctas .btn { flex: 1 1 auto; min-width: 0; }
+  .hero-chips {
+    display: flex;
+    gap: 8px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .hero-art {
+    position: relative;
+    height: clamp(340px, 60vw, 640px);
+  }
+  .hero-art-main {
+    position: absolute;
+    inset: 0;
+    border-radius: clamp(120px, 30vw, 200px);
+  }
+  .hero-art-cap {
+    position: absolute;
+    right: 0;
+    bottom: -10px;
+    text-align: right;
+    /* en mobile el texto queda sobre la foto: gradiente sutil para leerlo */
+    padding: 10px 14px 12px;
+    background: linear-gradient(to bottom,
+      rgba(251, 247, 239, 0) 0%,
+      rgba(251, 247, 239, .88) 55%,
+      rgba(251, 247, 239, .96) 100%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 14px;
+  }
+
+  @media (min-width: 900px) {
+    .hero {
+      grid-template-columns: 1.05fr 1fr;
+      gap: 56px;
+    }
+    .hero-ctas { margin-top: 34px; }
+    .hero-ctas .btn { flex: 0 0 auto; }
+    .hero-art-main { inset: 0 40px 60px 0; }
+    .hero-art-cap {
+      bottom: 0;
+      padding: 0;
+      background: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+</style>

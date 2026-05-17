@@ -1,0 +1,59 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Blend — wellness sin obsesión · Armenia, Quindío',
+  description = 'Bebidas y dulces hechos despacio en Armenia, Quindío. Pink Cloud, Abrazo Dulce, Spoonables — wellness sin obsesión.',
+} = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#FBF7EF" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200;6..72,300;6..72,400;6..72,500&family=Outfit:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+  </head>
+  <body>
+    <slot />
+    <script>
+      // Observer único que activa .is-visible cuando un elemento entra en viewport.
+      // Funciona para [data-reveal], [data-reveal-children] y [data-reveal-grid].
+      const targets = document.querySelectorAll<HTMLElement>(
+        '[data-reveal], [data-reveal-children], [data-reveal-grid]'
+      );
+      const io = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-visible');
+            io.unobserve(e.target);
+          }
+        }
+      }, {
+        threshold: 0.12,
+        rootMargin: '0px 0px -60px 0px',
+      });
+      targets.forEach((el) => io.observe(el));
+    </script>
+  </body>
+</html>

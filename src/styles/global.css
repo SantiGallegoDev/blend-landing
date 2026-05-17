@@ -1,0 +1,426 @@
+/* Blend — Atelier de Latte — design system
+ * Lifted from the proposal1.jsx prototype.
+ * Display: Newsreader Light 300 (upright). Body: Outfit. Labels: JetBrains Mono.
+ */
+
+:root {
+  --cream:  #F6EFE3;
+  --latte:  #E5D6BF;
+  --blush:  #EFD3CE;
+  --berry:  #9F5868;
+  --matcha: #C5D1B0;
+  --warm:   #FBF7EF;
+  --ink:    #2A2520;
+  --ink60:  rgba(42, 37, 32, .6);
+  --ink40:  rgba(42, 37, 32, .4);
+  --ink12:  rgba(42, 37, 32, .12);
+
+  --maxw: 1440px;
+  --pad-x: clamp(22px, 4vw, 56px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--warm);
+  color: var(--ink);
+  font-family: 'Outfit', 'Helvetica Neue', system-ui, sans-serif;
+  font-weight: 300;
+  letter-spacing: .01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+img { max-width: 100%; display: block; }
+button { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; padding: 0; margin: 0; }
+
+/* ---------- type helpers ---------- */
+.serif {
+  font-family: 'Newsreader', 'Times New Roman', serif;
+  font-weight: 300;
+  letter-spacing: -.01em;
+}
+.serif-md {
+  font-family: 'Newsreader', serif;
+  font-weight: 400;
+}
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .04em;
+}
+.eyebrow {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink60);
+}
+.accent { color: var(--berry); }
+
+.wordmark {
+  font-family: 'Newsreader', serif;
+  font-weight: 400;
+  letter-spacing: -.02em;
+}
+
+.underline {
+  position: relative;
+  display: inline-block;
+}
+.underline::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: .06em;
+  height: .18em;
+  background: var(--blush);
+  opacity: .55;
+  z-index: -1;
+  border-radius: 2px;
+}
+
+/* ---------- buttons + chips ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .25s ease;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 400;
+}
+.btn:hover { background: var(--ink); color: var(--cream); }
+.btn-fill {
+  background: var(--ink);
+  color: var(--cream);
+  border-color: var(--ink);
+}
+.btn-fill:hover { background: transparent; color: var(--ink); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--cream);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink60);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--matcha);
+}
+.dot-blush  { background: var(--blush); }
+.dot-berry  { background: var(--berry); }
+.dot-latte  { background: var(--latte); }
+.dot-matcha { background: var(--matcha); }
+
+.pill-prod {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(42, 37, 32, .06);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* ---------- placeholder image blocks ---------- */
+.img {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(42, 37, 32, .04) 0 12px,
+      rgba(42, 37, 32, .07) 12px 24px),
+    var(--cream);
+}
+.img .img-cap {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink60);
+}
+.img-blush {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(159, 88, 104, .06) 0 12px,
+      rgba(159, 88, 104, .10) 12px 24px),
+    var(--blush);
+}
+.img-matcha {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(0, 0, 0, .04) 0 12px,
+      rgba(0, 0, 0, .07) 12px 24px),
+    var(--matcha);
+}
+.img-latte {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(0, 0, 0, .04) 0 12px,
+      rgba(0, 0, 0, .07) 12px 24px),
+    var(--latte);
+}
+.img-cream {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(0, 0, 0, .03) 0 12px,
+      rgba(0, 0, 0, .06) 12px 24px),
+    var(--cream);
+}
+.img-berry {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(255, 255, 255, .06) 0 12px,
+      rgba(255, 255, 255, .10) 12px 24px),
+    var(--berry);
+  color: var(--cream);
+}
+.img-berry .img-cap { color: rgba(255, 255, 255, .7); }
+
+.img-pink-full {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(255, 255, 255, .18) 0 12px,
+      rgba(255, 255, 255, .28) 12px 24px),
+    #E8B7B0;
+  color: var(--cream);
+}
+.img-pink-full .img-cap { color: rgba(255, 255, 255, .85); }
+
+/* fills the .img wrapper edge-to-edge — used when a real photo replaces the striped placeholder */
+.img-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* hide the design-time monospace caption once a real photo is in */
+.img:has(> .img-fill) .img-cap { display: none; }
+
+.divider {
+  height: 1px;
+  background: var(--ink12);
+  border: 0;
+  margin: 0;
+}
+
+/* ---------- layout primitives ---------- */
+.section { padding: clamp(60px, 8vw, 110px) var(--pad-x); }
+.section-tight { padding: clamp(40px, 6vw, 90px) var(--pad-x); }
+.divider-x { margin: 0 var(--pad-x); }
+
+/* ---------- responsive breakpoints ----------
+ * Mobile-first. Two main breakpoints:
+ *   ≥ 768px: tablet — start using 2-col grids, fuller hero
+ *   ≥ 1100px: desktop — full 3-col + 6-col grids, big serif sizes
+ */
+
+/* Headings (responsive) */
+.h-hero {
+  font-family: 'Newsreader', serif;
+  font-weight: 300;
+  letter-spacing: -.03em;
+  line-height: .9;
+  margin: 14px 0 0;
+  font-size: clamp(56px, 11vw, 136px);
+}
+.h-section {
+  font-family: 'Newsreader', serif;
+  font-weight: 300;
+  letter-spacing: -.025em;
+  line-height: .95;
+  margin: 12px 0 0;
+  font-size: clamp(40px, 6.5vw, 88px);
+}
+.h-section-lg {
+  font-family: 'Newsreader', serif;
+  font-weight: 300;
+  letter-spacing: -.03em;
+  line-height: .9;
+  margin: 14px 0 0;
+  font-size: clamp(50px, 9vw, 116px);
+}
+.h-section-sm {
+  font-family: 'Newsreader', serif;
+  font-weight: 300;
+  letter-spacing: -.025em;
+  line-height: 1;
+  margin: 10px 0 0;
+  font-size: clamp(40px, 5.5vw, 68px);
+}
+
+.body-lg {
+  font-size: clamp(14px, 1.4vw, 17px);
+  line-height: 1.65;
+  color: var(--ink60);
+  max-width: 480px;
+}
+.body-md {
+  font-size: clamp(13px, 1.1vw, 15px);
+  line-height: 1.65;
+  color: var(--ink60);
+  max-width: 440px;
+}
+
+/* hide scrollbar on horizontal product strip */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* utility */
+.flex { display: flex; }
+.center { display: flex; align-items: center; justify-content: center; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 14px; }
+.gap-lg { gap: 24px; }
+.wrap { flex-wrap: wrap; }
+
+/* ============================================================
+ * Scroll reveal — pequeño sistema CSS para entradas suaves
+ * Cada elemento con [data-reveal="..."] arranca oculto y se
+ * activa al añadirle .is-visible (lo hace el IntersectionObserver).
+ * Todas las transformaciones son compuestas (opacity/transform/filter)
+ * → no reflow, no salto de layout.
+ * Easing común: cubic-bezier(.22,1,.36,1) — out-expo suave.
+ * ============================================================ */
+
+[data-reveal] {
+  opacity: 0;
+  will-change: opacity, transform, filter;
+  transition:
+    opacity 1100ms cubic-bezier(.22, 1, .36, 1),
+    transform 1100ms cubic-bezier(.22, 1, .36, 1),
+    filter 1100ms cubic-bezier(.22, 1, .36, 1);
+}
+[data-reveal="fade-up"]    { transform: translate3d(0, 28px, 0); }
+[data-reveal="fade-down"]  { transform: translate3d(0, -20px, 0); }
+[data-reveal="fade-left"]  { transform: translate3d(-32px, 0, 0); }
+[data-reveal="fade-right"] { transform: translate3d(32px, 0, 0); }
+[data-reveal="scale-soft"] { transform: scale(.95); }
+[data-reveal="blur-in"]    { filter: blur(10px); transform: scale(1.02); }
+[data-reveal="fade"]       { } /* solo opacity */
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* Stagger de hijos: añade [data-reveal-children] al contenedor.
+ * Cada hijo (hasta 8) entra con 100ms de delay extra. */
+[data-reveal-children] > * {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity 900ms cubic-bezier(.22, 1, .36, 1),
+    transform 900ms cubic-bezier(.22, 1, .36, 1);
+}
+[data-reveal-children].is-visible > * { opacity: 1; transform: none; }
+[data-reveal-children].is-visible > *:nth-child(1) { transition-delay:   0ms; }
+[data-reveal-children].is-visible > *:nth-child(2) { transition-delay: 100ms; }
+[data-reveal-children].is-visible > *:nth-child(3) { transition-delay: 200ms; }
+[data-reveal-children].is-visible > *:nth-child(4) { transition-delay: 300ms; }
+[data-reveal-children].is-visible > *:nth-child(5) { transition-delay: 400ms; }
+[data-reveal-children].is-visible > *:nth-child(6) { transition-delay: 500ms; }
+[data-reveal-children].is-visible > *:nth-child(7) { transition-delay: 600ms; }
+[data-reveal-children].is-visible > *:nth-child(8) { transition-delay: 700ms; }
+
+/* Variante horizontal del stagger para grids tipo IG */
+[data-reveal-grid] > * {
+  opacity: 0;
+  transform: scale(.94);
+  transition:
+    opacity 700ms cubic-bezier(.22, 1, .36, 1),
+    transform 700ms cubic-bezier(.22, 1, .36, 1);
+}
+[data-reveal-grid].is-visible > * { opacity: 1; transform: none; }
+[data-reveal-grid].is-visible > *:nth-child(1) { transition-delay:   0ms; }
+[data-reveal-grid].is-visible > *:nth-child(2) { transition-delay:  80ms; }
+[data-reveal-grid].is-visible > *:nth-child(3) { transition-delay: 160ms; }
+[data-reveal-grid].is-visible > *:nth-child(4) { transition-delay: 240ms; }
+[data-reveal-grid].is-visible > *:nth-child(5) { transition-delay: 320ms; }
+[data-reveal-grid].is-visible > *:nth-child(6) { transition-delay: 400ms; }
+
+/* ============================================================
+ * Idle "breathing" — animaciones infinitas muy sutiles
+ * para que el sitio se sienta vivo sin distraer.
+ * ============================================================ */
+
+@keyframes breath-soft {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.018); }
+}
+.breath { animation: breath-soft 11s ease-in-out infinite; }
+
+@keyframes breath-tilt {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-4px) rotate(.4deg); }
+}
+.breath-tilt { animation: breath-tilt 9s ease-in-out infinite; }
+
+@keyframes underline-pulse {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: .85; }
+}
+.underline::after {
+  animation: underline-pulse 5s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.45); opacity: .75; }
+}
+.chip .dot { animation: dot-pulse 3.6s ease-in-out infinite; }
+
+/* Hover lift sutil para tarjetas con foto */
+.product-card,
+.ig-tile {
+  transition: transform .5s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .5s cubic-bezier(.22, 1, .36, 1);
+}
+.product-card:hover { transform: translateY(-4px); }
+.ig-tile:hover      { transform: scale(1.02); }
+
+/* Zoom muy suave en imágenes de placeholders cuando hay hover en el contenedor */
+.img > .img-fill { transition: transform 1.2s cubic-bezier(.22, 1, .36, 1); }
+.product-card:hover .img > .img-fill,
+.rit-tile:hover .img-fill,
+.ig-tile:hover .img-fill { transform: scale(1.04); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+  [data-reveal], [data-reveal-children] > *, [data-reveal-grid] > * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}

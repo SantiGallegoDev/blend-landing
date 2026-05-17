@@ -1,0 +1,185 @@
+---
+import { stockists, placeTags, site, waLink } from '../data/site';
+const wa = waLink('Hola Blend, somos un lugar y queremos llevar Blend ☁');
+const mailto = `mailto:${site.email}?subject=Distribuidor%20Blend&body=Hola%20Blend%2C%20me%20gustar%C3%ADa%20llevar%20sus%20productos.%0A%0A-%20Mi%20nombre%3A%0A-%20Lugar%2Fnegocio%3A%0A-%20Ciudad%3A%0A-%20En%20una%20l%C3%ADnea%3A`;
+
+const fields = [
+  { name: 'name',    label: 'tu nombre',                 placeholder: 'Catalina Restrepo',                  type: 'text' },
+  { name: 'place',   label: 'lugar / negocio',           placeholder: 'Estudio Mat & Co.',                  type: 'text' },
+  { name: 'city',    label: 'ciudad',                    placeholder: 'Armenia, Quindío',                   type: 'text' },
+  { name: 'message', label: 'cuéntanos en una línea',    placeholder: 'Café-estudio wellness en el Centenario ☁', type: 'text' },
+] as const;
+---
+<section class="dist-section" id="distribuidores">
+  <div class="dist-grid">
+    <div class="dist-copy">
+      <div class="eyebrow" data-reveal="fade-up">Distribuidores · cafés · estudios</div>
+      <h2 class="h-section" data-reveal="fade-up">
+        ¿llevamos Blend a <span class="accent">tu lugar?</span>
+      </h2>
+      <p class="body-md" style="margin-top: 22px;" data-reveal="fade-up">
+        Empezamos por el eje cafetero — Armenia, Pereira, Manizales —
+        y vamos despacio hacia Bogotá y Medellín. Trabajamos con cafés
+        de barrio, estudios de yoga, gyms boutique y tiendas pequeñas.
+        Si tu lugar se siente como Blend, queremos conocerlo.
+      </p>
+      <div class="dist-tags" data-reveal-children>
+        {placeTags.map(t => <span class="chip">{t}</span>)}
+      </div>
+
+      <div class="stockists" data-reveal="fade-up">
+        <div class="eyebrow">Ya en estos lugares</div>
+        <ul class="stockist-list">
+          {stockists.map(([n, name, where]) => (
+            <li class="stockist-row">
+              <span class="mono stockist-num">{n}</span>
+              <span class="serif stockist-name">{name}</span>
+              <span class="mono stockist-where">{where}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    <form class="dist-form" action={mailto} method="get" data-reveal="fade-left">
+      <div class="eyebrow" style="margin-bottom: 18px;">Formulario · 4 campos</div>
+      {fields.map(f => (
+        <label class="dist-field">
+          <span class="mono dist-field-l">{f.label}</span>
+          <input
+            type={f.type}
+            name={f.name}
+            placeholder={f.placeholder}
+            required
+            class="dist-input serif"
+          />
+        </label>
+      ))}
+      <div class="dist-foot">
+        <span class="mono dist-note">respondemos en 48 h</span>
+        <button class="btn btn-fill" type="submit">Enviar ↗</button>
+      </div>
+      <div class="dist-foot-wa">
+        <span class="mono" style="font-size: 11px; color: var(--ink60);">o más rápido —</span>
+        <a class="btn" href={wa} target="_blank" rel="noopener">WhatsApp ↗</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<style>
+  .dist-section {
+    background: var(--cream);
+    padding: clamp(60px, 9vw, 110px) var(--pad-x);
+  }
+  .dist-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+  .dist-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 24px;
+  }
+
+  .stockists {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--ink12);
+  }
+  .stockist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .stockist-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--ink12);
+    padding-bottom: 8px;
+  }
+  .stockist-num {
+    font-size: 10px;
+    color: var(--ink60);
+    flex: 0 0 auto;
+  }
+  .stockist-name {
+    font-size: 18px;
+    font-weight: 300;
+    flex: 1;
+    letter-spacing: -.01em;
+  }
+  .stockist-where {
+    font-size: 10px;
+    color: var(--ink60);
+    text-align: right;
+  }
+
+  .dist-form {
+    background: var(--warm);
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid rgba(42, 37, 32, .05);
+  }
+  .dist-field {
+    display: block;
+    margin-bottom: 22px;
+  }
+  .dist-field-l {
+    display: block;
+    font-size: 10px;
+    color: var(--ink60);
+    text-transform: uppercase;
+    letter-spacing: .15em;
+  }
+  .dist-input {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid rgba(42, 37, 32, .2);
+    background: transparent;
+    padding: 8px 0;
+    font-size: 18px;
+    font-family: 'Newsreader', serif;
+    font-weight: 300;
+    color: var(--ink);
+    outline: none;
+    transition: border-color .2s ease;
+  }
+  .dist-input::placeholder { color: var(--ink40); }
+  .dist-input:focus { border-bottom-color: var(--berry); }
+
+  .dist-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 26px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .dist-note { font-size: 11px; color: var(--ink60); }
+  .dist-foot-wa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ink12);
+    flex-wrap: wrap;
+  }
+
+  @media (min-width: 900px) {
+    .dist-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+    }
+    .dist-form { padding: 36px; }
+  }
+</style>

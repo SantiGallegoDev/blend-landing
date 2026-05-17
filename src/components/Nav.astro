@@ -1,0 +1,140 @@
+---
+import { navLinks, waLink } from '../data/site';
+const wa = waLink();
+---
+<header class="nav">
+  <a href="#top" class="nav-logo" aria-label="Blend — inicio">
+    <img src="/images/logo-blend.jpg" alt="Blend" />
+  </a>
+
+  <nav class="nav-links" aria-label="Principal">
+    {navLinks.map(({ label, href }) => (
+      <a href={href}>{label}</a>
+    ))}
+  </nav>
+
+  <div class="nav-right">
+    <a class="btn btn-fill nav-cta" href={wa} target="_blank" rel="noopener">
+      Pedir por WhatsApp
+    </a>
+    <button class="nav-burger" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobile-drawer">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<div class="mobile-drawer is-closed" id="mobile-drawer">
+  {navLinks.map(({ label, href }) => (
+    <a href={href} class="serif drawer-link">{label}</a>
+  ))}
+  <a class="btn btn-fill drawer-cta" href={wa} target="_blank" rel="noopener">
+    Pedir por WhatsApp
+  </a>
+</div>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px var(--pad-x);
+    border-bottom: 1px solid var(--ink12);
+    background: #e0d1cb; /* matchea el fondo del logo para que se funda sin bordes */
+  }
+  .nav-logo {
+    display: inline-block;
+    line-height: 0;
+  }
+  .nav-logo img {
+    height: clamp(34px, 3.4vw, 44px);
+    width: auto;
+    display: block;
+    /* el fondo crema del JPG (#efe7e3) es MÁS claro que el header (#e0d1cb).
+       darken se queda con el más oscuro de los dos píxeles → el fondo del logo
+       se vuelve idéntico al header (invisible), y los trazos marrones (más oscuros
+       que el header) quedan intactos. */
+    mix-blend-mode: darken;
+  }
+
+  .nav-links {
+    display: none;
+    gap: 36px;
+    font-size: 13px;
+    letter-spacing: .04em;
+  }
+  .nav-links a:hover { color: var(--berry); }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .nav-cta { padding: 10px 18px; font-size: 11px; display: none; }
+
+  .nav-burger {
+    width: 30px; height: 30px;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 6px;
+    background: transparent;
+    border: 0;
+    padding: 6px 4px;
+    cursor: pointer;
+  }
+  .nav-burger span {
+    display: block;
+    height: 1px;
+    background: var(--ink);
+  }
+
+  .mobile-drawer {
+    position: sticky;
+    top: 65px;
+    z-index: 49;
+    background: #e0d1cb; /* matchea el nav */
+    border-bottom: 1px solid var(--ink12);
+    padding: 24px var(--pad-x) 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .mobile-drawer.is-closed { display: none; }
+  .drawer-link {
+    font-size: 32px;
+    font-weight: 300;
+    letter-spacing: -.015em;
+  }
+  .drawer-cta { width: 100%; margin-top: 8px; }
+
+  @media (min-width: 900px) {
+    .nav { padding: 22px var(--pad-x); }
+    .nav-links  { display: flex; }
+    .nav-cta    { display: inline-flex; }
+    .nav-burger { display: none; }
+    .mobile-drawer { display: none !important; }
+  }
+</style>
+
+<script>
+  const burger = document.querySelector<HTMLButtonElement>('.nav-burger');
+  const drawer = document.getElementById('mobile-drawer');
+  if (burger && drawer) {
+    const close = () => {
+      drawer.classList.add('is-closed');
+      burger.setAttribute('aria-expanded', 'false');
+    };
+    const open = () => {
+      drawer.classList.remove('is-closed');
+      burger.setAttribute('aria-expanded', 'true');
+    };
+    burger.addEventListener('click', () => {
+      drawer.classList.contains('is-closed') ? open() : close();
+    });
+    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', close));
+  }
+</script>
