@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import LegalDraft from '../components/LegalDraft.astro';
+
+// ⚠︎ Esqueleto de la política de tratamiento de datos (Ley 1581 de 2012 y Decreto 1377 de 2013).
+// Debe completarse con asesoría legal antes de activar el checkout.
+const sections = [
+  { title: 'Responsable del tratamiento', note: 'Identificación de Blend, NIT, domicilio, correo y teléfono de contacto.' },
+  { title: 'Datos que recolectamos', note: 'Nombre, correo, teléfono y dirección de entrega cuando haces un pedido o compras un e-book.' },
+  { title: 'Finalidades', note: 'Procesar pedidos, entregar productos digitales, emitir facturas y responder solicitudes.' },
+  { title: 'Derechos del titular', note: 'Conocer, actualizar, rectificar y suprimir tus datos, y revocar la autorización.' },
+  { title: 'Cómo ejercer tus derechos', note: 'Canal, plazos de respuesta y procedimiento para consultas y reclamos.' },
+  { title: 'Proveedores', note: 'Servicios que tratan datos por cuenta de Blend (pagos, correo, alojamiento).' },
+  { title: 'Vigencia', note: 'Fecha de entrada en vigor y tiempo de conservación de la información.' },
+];
+---
+<BaseLayout title="Política de privacidad · Blend" description="Política de tratamiento de datos personales de Blend." noindex>
+  <LegalDraft
+    title="Política de privacidad"
+    intro="Estamos preparando esta política con asesoría legal. Hoy solo usamos tus datos para responder tus mensajes y coordinar tus pedidos."
+    sections={sections}
+  />
+</BaseLayout>

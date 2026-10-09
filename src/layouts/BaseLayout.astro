@@ -1,59 +1,110 @@
 ---
+import '@fontsource-variable/outfit/wght.css';
+import '@fontsource/jetbrains-mono/latin-400.css';
 import '../styles/global.css';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
 
 interface Props {
   title?: string;
   description?: string;
+  /** Ruta o URL absoluta de la imagen para redes sociales (1200×630). */
+  image?: string;
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  /** false = sin navegación ni footer (páginas internas como /brand). */
+  chrome?: boolean;
 }
 
 const {
-  title = 'Blend — wellness sin obsesión · Armenia, Quindío',
-  description = 'Bebidas y dulces hechos despacio en Armenia, Quindío. Pink Cloud, Abrazo Dulce, Spoonables — wellness sin obsesión.',
+  title = 'Blend · Bebidas frías y guías digitales para tu bienestar',
+  description = 'Bebidas en lata con fruta, raíces y café de especialidad, sin azúcar añadida, y e-books para inspirarte en la cocina y en tu rutina. Hecho en Armenia, Quindío.',
+  image = '/og-blend.jpg',
+  noindex = false,
+  jsonLd,
+  chrome = true,
 } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL(image, Astro.site);
 ---
-<!DOCTYPE html>
-<html lang="es">
+<!doctype html>
+<html lang="es-CO">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#FBF7EF" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>document.documentElement.classList.add('js');</script>
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#FBF7EF" />
 
+    <meta property="og:site_name" content="Blend" />
+    <meta property="og:locale" content="es_CO" />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
     <meta name="twitter:card" content="summary_large_image" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200;6..72,300;6..72,400;6..72,500&family=Outfit:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap"
-    />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    <slot name="head" />
   </head>
   <body>
-    <slot />
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+    {chrome && <Nav />}
+    <main id="contenido">
+      <slot />
+    </main>
+    {chrome && <Footer />}
+
     <script>
-      // Observer único que activa .is-visible cuando un elemento entra en viewport.
-      // Funciona para [data-reveal], [data-reveal-children] y [data-reveal-grid].
-      const targets = document.querySelectorAll<HTMLElement>(
-        '[data-reveal], [data-reveal-children], [data-reveal-grid]'
-      );
-      const io = new IntersectionObserver((entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            e.target.classList.add('is-visible');
-            io.unobserve(e.target);
-          }
-        }
-      }, {
-        threshold: 0.12,
-        rootMargin: '0px 0px -60px 0px',
-      });
-      targets.forEach((el) => io.observe(el));
+      // Un solo observer activa .is-visible al entrar en viewport.
+      const targets = document.querySelectorAll<HTMLElement>('[data-reveal], [data-reveal-children]');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add('is-visible');
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -60px 0px' },
+        );
+        targets.forEach((el) => io.observe(el));
+      } else {
+        targets.forEach((el) => el.classList.add('is-visible'));
+      }
+
+      // Profundidad: las capas [data-depth] dentro de [data-tilt] siguen al puntero.
+      const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (fine && !calm) {
+        document.querySelectorAll<HTMLElement>('[data-tilt]').forEach((el) => {
+          let frame = 0;
+          el.addEventListener('pointermove', (ev) => {
+            const r = el.getBoundingClientRect();
+            const x = (ev.clientX - r.left) / r.width - 0.5;
+            const y = (ev.clientY - r.top) / r.height - 0.5;
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+              el.style.setProperty('--mx', x.toFixed(3));
+              el.style.setProperty('--my', y.toFixed(3));
+            });
+          });
+          el.addEventListener('pointerleave', () => {
+            cancelAnimationFrame(frame);
+            el.style.setProperty('--mx', '0');
+            el.style.setProperty('--my', '0');
+          });
+        });
+      }
     </script>
   </body>
 </html>

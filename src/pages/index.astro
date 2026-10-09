@@ -1,25 +1,31 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Nav from '../components/Nav.astro';
-import Hero from '../components/Hero.astro';
-import Products from '../components/Products.astro';
-import Spotlight from '../components/Spotlight.astro';
+import HeroEcosystem from '../components/HeroEcosystem.astro';
+import DrinkShowcase from '../components/DrinkShowcase.astro';
+import IngredientStory from '../components/IngredientStory.astro';
+import DigitalShowcase from '../components/DigitalShowcase.astro';
+import Moments from '../components/Moments.astro';
 import Origin from '../components/Origin.astro';
-import Rituals from '../components/Rituals.astro';
-import Instagram from '../components/Instagram.astro';
-import Distributors from '../components/Distributors.astro';
-import Footer from '../components/Footer.astro';
+import BusinessTeaser from '../components/BusinessTeaser.astro';
+import { site, instagramUrl } from '../data/site';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Blend',
+  url: Astro.site?.toString(),
+  logo: new URL('/og-blend.jpg', Astro.site).toString(),
+  sameAs: [instagramUrl],
+  address: { '@type': 'PostalAddress', addressLocality: 'Armenia', addressRegion: 'Quindío', addressCountry: 'CO' },
+  email: site.email,
+};
 ---
-<BaseLayout>
-  <Nav />
-  <main>
-    <Hero />
-    <Products />
-    <Spotlight />
-    <Origin />
-    <Rituals />
-    <Instagram />
-    <Distributors />
-  </main>
-  <Footer />
+<BaseLayout jsonLd={jsonLd}>
+  <HeroEcosystem />
+  <DrinkShowcase />
+  <IngredientStory />
+  <DigitalShowcase />
+  <Moments />
+  <Origin />
+  <BusinessTeaser />
 </BaseLayout>

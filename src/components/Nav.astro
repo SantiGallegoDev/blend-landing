@@ -1,140 +1,251 @@
 ---
+import logo from '../assets/marca/logo-blend.webp';
+import pinkCloud from '../assets/bebidas/pink-cloud/travertino-palmas.png';
+import Photo from './Photo.astro';
 import { navLinks, waLink } from '../data/site';
-const wa = waLink();
+
+const path = Astro.url.pathname;
+const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
+const secondary = [
+  { label: 'Nosotros', href: '/nosotros' },
+  { label: 'Negocios', href: '/negocios' },
+  { label: 'Ayuda', href: '/ayuda' },
+];
 ---
-<header class="nav">
-  <a href="#top" class="nav-logo" aria-label="Blend — inicio">
-    <img src="/images/logo-blend.jpg" alt="Blend" />
-  </a>
-
-  <nav class="nav-links" aria-label="Principal">
-    {navLinks.map(({ label, href }) => (
-      <a href={href}>{label}</a>
-    ))}
-  </nav>
-
-  <div class="nav-right">
-    <a class="btn btn-fill nav-cta" href={wa} target="_blank" rel="noopener">
-      Pedir por WhatsApp
+<header class="nav" data-nav>
+  <div class="nav-inner container">
+    <a href="/" class="nav-logo" aria-label="Blend, ir al inicio">
+      <span class="logo" style={`--logo:url(${logo.src})`}></span>
     </a>
-    <button class="nav-burger" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobile-drawer">
-      <span></span><span></span>
-    </button>
+
+    <nav class="nav-links" aria-label="Principal">
+      {navLinks.map(({ label, href }) => (
+        <a href={href} aria-current={isCurrent(href) ? 'page' : undefined}>{label}</a>
+      ))}
+    </nav>
+
+    <div class="nav-actions">
+      <a class="nav-contact" href={waLink()} target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span>Escríbenos</span>
+      </a>
+      <button class="nav-burger" type="button" aria-expanded="false" aria-controls="menu-movil">
+        <span class="sr-only" data-label>Abrir menú</span>
+        <span class="burger-line burger-top"></span>
+        <span class="burger-line burger-bottom"></span>
+      </button>
+    </div>
   </div>
 </header>
 
-<div class="mobile-drawer is-closed" id="mobile-drawer">
-  {navLinks.map(({ label, href }) => (
-    <a href={href} class="serif drawer-link">{label}</a>
-  ))}
-  <a class="btn btn-fill drawer-cta" href={wa} target="_blank" rel="noopener">
-    Pedir por WhatsApp
-  </a>
+<div class="drawer" id="menu-movil" hidden>
+  <div class="drawer-inner container">
+    <div class="drawer-doors">
+      <a href="/bebidas" class="drawer-door drawer-door-drinks">
+        <span class="drawer-door-img arch">
+          <Photo src={pinkCloud} alt="" sizes="40vw" focus="50% 58%" maxWidth={560} />
+        </span>
+        <span class="drawer-door-label">
+          <span class="eyebrow">Blend Drinks</span>
+          <span class="drawer-door-title">Bebidas</span>
+        </span>
+      </a>
+      <a href="/digital" class="drawer-door drawer-door-digital">
+        <span class="drawer-door-book" aria-hidden="true">
+          <span class="mini-book"></span>
+        </span>
+        <span class="drawer-door-label">
+          <span class="eyebrow">Blend Digital</span>
+          <span class="drawer-door-title">E-books</span>
+        </span>
+      </a>
+    </div>
+    <ul class="drawer-links">
+      {secondary.map(({ label, href }) => (
+        <li><a href={href} aria-current={isCurrent(href) ? 'page' : undefined}>{label}</a></li>
+      ))}
+    </ul>
+    <a class="btn btn-solid btn-block" href={waLink()} target="_blank" rel="noopener">Escríbenos por WhatsApp</a>
+  </div>
 </div>
 
 <style>
   .nav {
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 60;
+    background: color-mix(in oklab, var(--warm) 86%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: border-color .4s var(--ease), background-color .4s var(--ease);
+  }
+  .nav[data-scrolled] { border-bottom-color: var(--line); }
+  .nav-inner {
+    height: var(--nav-h);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px var(--pad-x);
-    border-bottom: 1px solid var(--ink12);
-    background: #e0d1cb; /* matchea el fondo del logo para que se funda sin bordes */
+    gap: 24px;
   }
-  .nav-logo {
-    display: inline-block;
-    line-height: 0;
+  .nav-logo { color: var(--ink); display: block; }
+  .nav-logo .logo { height: 30px; }
+
+  .nav-links { display: none; gap: 6px; }
+  .nav-links a {
+    position: relative;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-weight: 450;
+    border-radius: 999px;
+    transition: background-color .3s var(--ease);
   }
-  .nav-logo img {
-    height: clamp(34px, 3.4vw, 44px);
-    width: auto;
-    display: block;
-    /* el fondo crema del JPG (#efe7e3) es MÁS claro que el header (#e0d1cb).
-       darken se queda con el más oscuro de los dos píxeles → el fondo del logo
-       se vuelve idéntico al header (invisible), y los trazos marrones (más oscuros
-       que el header) quedan intactos. */
-    mix-blend-mode: darken;
+  .nav-links a:hover { background: var(--cream); }
+  .nav-links a[aria-current='page'] { background: var(--cream); }
+  .nav-links a[aria-current='page']::after {
+    content: '♥';
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    transform: translateX(-50%);
+    font-size: 8px;
   }
 
-  .nav-links {
+  .nav-actions { display: flex; align-items: center; gap: 8px; }
+  .nav-contact {
     display: none;
-    gap: 36px;
-    font-size: 13px;
-    letter-spacing: .04em;
-  }
-  .nav-links a:hover { color: var(--berry); }
-
-  .nav-right {
-    display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 450;
+    transition: border-color .3s var(--ease), background-color .3s var(--ease);
   }
-  .nav-cta { padding: 10px 18px; font-size: 11px; display: none; }
+  .nav-contact:hover { border-color: var(--ink); background: var(--cream); }
+  .nav-contact svg { width: 18px; height: 18px; }
 
   .nav-burger {
-    width: 30px; height: 30px;
-    display: inline-flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: stretch;
-    gap: 6px;
-    background: transparent;
-    border: 0;
-    padding: 6px 4px;
-    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-content: center;
+    gap: 7px;
+    border-radius: 999px;
   }
-  .nav-burger span {
+  .burger-line {
     display: block;
-    height: 1px;
+    width: 22px;
+    height: 1.5px;
     background: var(--ink);
+    transition: transform .4s var(--ease);
+  }
+  .nav-burger[aria-expanded='true'] .burger-top { transform: translateY(4.25px) rotate(45deg); }
+  .nav-burger[aria-expanded='true'] .burger-bottom { transform: translateY(-4.25px) rotate(-45deg); }
+
+  .drawer {
+    position: fixed;
+    inset: var(--nav-h) 0 0 0;
+    z-index: 59;
+    overflow-y: auto;
+    background: var(--warm);
+    padding-block: 20px 32px;
+  }
+  .drawer:not([hidden]) { animation: drawer-in .45s var(--ease); }
+  @keyframes drawer-in {
+    from { opacity: 0; transform: translateY(-8px); }
+  }
+  .drawer-inner { display: grid; gap: 28px; }
+  .drawer-doors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .drawer-door {
+    display: grid;
+    gap: 14px;
+    align-content: space-between;
+    min-height: 260px;
+    padding: 14px;
+    border-radius: var(--r-md);
+  }
+  .drawer-door-drinks { background: color-mix(in oklab, var(--pink) 18%, var(--cream)); }
+  .drawer-door-digital { background: var(--paper); }
+  .drawer-door-img {
+    --arch-v: 37.5%;
+    display: block;
+    width: 72%;
+    aspect-ratio: 3 / 4;
+    margin-inline: auto;
+  }
+  .drawer-door-book {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 3 / 4;
+    width: 72%;
+    margin-inline: auto;
+  }
+  .mini-book {
+    width: 70%;
+    aspect-ratio: 2 / 3;
+    border-radius: 3px 8px 8px 3px;
+    background:
+      linear-gradient(90deg, rgba(0, 0, 0, .18) 0 6%, transparent 6% 100%),
+      var(--sage);
+    box-shadow: 10px 14px 24px -12px rgba(42, 37, 32, .5);
+    transform: rotate(-4deg);
+  }
+  .drawer-door-label { display: grid; gap: 2px; }
+  .drawer-door-title { font-family: var(--serif); font-size: 30px; font-weight: 320; line-height: 1; }
+  .drawer-links { display: grid; border-top: 1px solid var(--line); }
+  .drawer-links a {
+    display: block;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 320;
   }
 
-  .mobile-drawer {
-    position: sticky;
-    top: 65px;
-    z-index: 49;
-    background: #e0d1cb; /* matchea el nav */
-    border-bottom: 1px solid var(--ink12);
-    padding: 24px var(--pad-x) 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-  .mobile-drawer.is-closed { display: none; }
-  .drawer-link {
-    font-size: 32px;
-    font-weight: 300;
-    letter-spacing: -.015em;
-  }
-  .drawer-cta { width: 100%; margin-top: 8px; }
-
-  @media (min-width: 900px) {
-    .nav { padding: 22px var(--pad-x); }
-    .nav-links  { display: flex; }
-    .nav-cta    { display: inline-flex; }
+  @media (min-width: 960px) {
+    .nav-links { display: flex; }
+    .nav-contact { display: inline-flex; }
     .nav-burger { display: none; }
-    .mobile-drawer { display: none !important; }
+    .drawer { display: none !important; }
   }
 </style>
 
 <script>
+  const nav = document.querySelector<HTMLElement>('[data-nav]');
   const burger = document.querySelector<HTMLButtonElement>('.nav-burger');
-  const drawer = document.getElementById('mobile-drawer');
+  const drawer = document.getElementById('menu-movil');
+  const label = burger?.querySelector<HTMLElement>('[data-label]');
+
+  if (nav) {
+    const onScroll = () => nav.toggleAttribute('data-scrolled', window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
   if (burger && drawer) {
-    const close = () => {
-      drawer.classList.add('is-closed');
-      burger.setAttribute('aria-expanded', 'false');
+    const setOpen = (open: boolean) => {
+      drawer.hidden = !open;
+      burger.setAttribute('aria-expanded', String(open));
+      if (label) label.textContent = open ? 'Cerrar menú' : 'Abrir menú';
+      document.documentElement.style.overflow = open ? 'hidden' : '';
+      if (open) drawer.querySelector<HTMLElement>('a')?.focus();
     };
-    const open = () => {
-      drawer.classList.remove('is-closed');
-      burger.setAttribute('aria-expanded', 'true');
-    };
-    burger.addEventListener('click', () => {
-      drawer.classList.contains('is-closed') ? open() : close();
+    burger.addEventListener('click', () => setOpen(drawer.hasAttribute('hidden')));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !drawer.hasAttribute('hidden')) {
+        setOpen(false);
+        burger.focus();
+      }
     });
-    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', close));
+    drawer.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setOpen(false)));
+    window.matchMedia('(min-width: 960px)').addEventListener('change', (e) => {
+      if (e.matches) setOpen(false);
+    });
   }
 </script>

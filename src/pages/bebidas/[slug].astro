@@ -1,0 +1,249 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getImage } from 'astro:assets';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Photo from '../../components/Photo.astro';
+import DrinkCard from '../../components/DrinkCard.astro';
+import { getDrinks } from '../../data/catalog';
+import { site, drinkLines, formatCOP, waLink } from '../../data/site';
+
+export const getStaticPaths = (async () => {
+  const drinks = await getDrinks();
+  return drinks.map((drink) => ({ params: { slug: drink.id }, props: { drink, drinks } }));
+}) satisfies GetStaticPaths;
+
+const { drink, drinks } = Astro.props;
+const d = drink.data;
+const line = drinkLines[d.line];
+const related = drinks.filter((x) => x.id !== drink.id);
+const template = `Hola Blend, quiero pedir {qty} ${d.name} (${d.volume}).`;
+const message = (qty: number) => template.replace('{qty}', String(qty));
+
+// "Piña, hierbabuena, apio, pepino y limón, con vitamina C. 330 ml."
+const lower = (x: string) => x.charAt(0).toLowerCase() + x.slice(1);
+const list = (arr: string[]) => (arr.length > 1 ? `${arr.slice(0, -1).join(', ')} y ${arr.at(-1)}` : arr[0]);
+const ingredientsText = list(d.ingredients.map((x, i) => (i === 0 ? x : lower(x))));
+const extrasText = d.extras.length > 0 ? `, con ${list(d.extras.map(lower))}` : '';
+const sentence = `${ingredientsText}${extrasText}. ${d.volume}.`;
+
+const ogImage = await getImage({ src: d.hero.src, width: 1200, format: 'jpg' });
+const jsonLd: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: d.name,
+  description: d.seoDescription,
+  image: new URL(ogImage.src, Astro.site).toString(),
+  brand: { '@type': 'Brand', name: 'Blend' },
+  category: `Bebidas · ${line.name}`,
+};
+if (d.price) {
+  jsonLd.offers = {
+    '@type': 'Offer',
+    price: d.price,
+    priceCurrency: 'COP',
+    availability: d.available ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+  };
+}
+---
+<BaseLayout title={`${d.name} · Blend Drinks`} description={d.seoDescription} image={ogImage.src} jsonLd={jsonLd}>
+  <article class="pdp flavored" style={`--flavor:${d.flavor}`}>
+    <section class="pdp-hero">
+      <div class="container pdp-hero-grid">
+        <div class:list={['pdp-media', { 'is-cutout': d.hero.fit === 'contain' }]}>
+          <Photo
+            src={d.hero.src}
+            alt={d.hero.alt}
+            focus={d.hero.focus}
+            fit={d.hero.fit}
+            eager
+            sizes="(min-width: 960px) 58vw, 100vw"
+            transitionName={`bebida-${drink.id}`}
+          />
+        </div>
+
+        <div class="pdp-buy">
+          <nav class="pdp-crumbs" aria-label="Ruta">
+            <a href="/bebidas">Bebidas</a>
+            <span aria-hidden="true">/</span>
+            <span>{line.name}</span>
+          </nav>
+          <h1 class="h1 pdp-name">{d.name}</h1>
+          <p class="pdp-headline"><em>{d.headline}</em></p>
+          <p class="body">{sentence}</p>
+          <ul class="pdp-badges" aria-label="Sellos de la etiqueta">
+            {d.badges.map((b) => <li class="chip"><span class="chip-dot"></span>{b}</li>)}
+          </ul>
+
+          {d.price && <p class="pdp-price price">{formatCOP(d.price)}</p>}
+
+          <div class="pdp-actions" data-order data-template={template}>
+            <div class="qty" role="group" aria-label="Cantidad">
+              <button type="button" data-step="-1" aria-label="Quitar una">−</button>
+              <output data-qty aria-live="polite">1</output>
+              <button type="button" data-step="1" aria-label="Agregar una">+</button>
+            </div>
+            <a class="btn btn-solid pdp-cta" href={waLink(message(1))} target="_blank" rel="noopener" data-wa>
+              Pedir por WhatsApp
+            </a>
+          </div>
+          <p class="small pdp-note">
+            Entregamos frías en {site.deliveryArea}. Muy pronto podrás pagar en línea.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="container section-sm pdp-info">
+      <div class="pdp-block">
+        <p class="eyebrow">Lo que lleva</p>
+        <ul class="pdp-ingredients">
+          {d.ingredients.map((i) => <li>{i}</li>)}
+          {d.extras.map((x) => <li class="pdp-extra">+ {x}</li>)}
+        </ul>
+      </div>
+      <div class="pdp-block">
+        <p class="eyebrow">Cómo disfrutarla</p>
+        <ul class="heart-list body">
+          <li>Guárdala en la nevera, como indica la etiqueta.</li>
+          <li>Ábrela fría y tómala directo de la lata o sobre hielo.</li>
+          <li>Cada lata trae {d.volume}.</li>
+        </ul>
+      </div>
+    </section>
+
+    {d.gallery.length > 0 && (
+      <section class="container pdp-gallery" aria-label="Galería">
+        <ul class:list={['pdp-gallery-grid', `count-${d.gallery.length}`]}>
+          {d.gallery.map((g) => (
+            <li>
+              <Photo src={g.src} alt={g.alt} focus={g.focus} fit={g.fit} sizes="(min-width: 900px) 45vw, 100vw" />
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <section class="container section pdp-related" aria-labelledby="related-title">
+      <h2 id="related-title" class="h2">También te puede <em>gustar</em>.</h2>
+      <ul class="pdp-related-grid">
+        {related.map((r) => (
+          <li><DrinkCard drink={r} sizes="(min-width: 900px) 22vw, 45vw" /></li>
+        ))}
+      </ul>
+    </section>
+  </article>
+</BaseLayout>
+
+<style>
+  .pdp-hero {
+    background: linear-gradient(var(--tint) 0%, var(--tint) 70%, var(--warm) 100%);
+    padding-block: clamp(20px, 4vw, 56px) clamp(40px, 6vw, 80px);
+  }
+  .pdp-hero-grid { display: grid; gap: 32px; align-items: center; }
+  .pdp-media {
+    aspect-ratio: 4 / 3;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--tint-strong);
+  }
+  .pdp-media.is-cutout {
+    background: radial-gradient(60% 55% at 50% 60%, var(--tint-strong), var(--tint));
+  }
+  .pdp-media.is-cutout :global(img) {
+    padding: 6% 0;
+    filter: drop-shadow(0 30px 30px rgba(42, 37, 32, .3));
+  }
+
+  .pdp-buy { display: grid; gap: 16px; justify-items: start; }
+  .pdp-crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--ink-2); }
+  .pdp-crumbs a { text-decoration: underline; text-underline-offset: 3px; }
+  .pdp-headline {
+    font-family: var(--serif);
+    font-size: clamp(22px, 2.2vw, 30px);
+    font-weight: 300;
+    line-height: 1.2;
+    color: var(--deep);
+  }
+  .pdp-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pdp-price { font-size: 20px; }
+  .pdp-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+  .qty {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--ink);
+    border-radius: 999px;
+    min-height: 50px;
+  }
+  .qty button {
+    width: 46px;
+    height: 48px;
+    font-size: 20px;
+    border-radius: 999px;
+  }
+  .qty button:hover { background: rgba(255, 255, 255, .6); }
+  .qty output { min-width: 28px; text-align: center; font-family: var(--mono); font-size: 16px; }
+  .pdp-note { max-width: 42ch; }
+
+  .pdp-info { display: grid; gap: 40px; }
+  .pdp-block { display: grid; gap: 18px; align-content: start; }
+  .pdp-ingredients { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+  .pdp-ingredients li {
+    font-family: var(--serif);
+    font-size: clamp(30px, 3.6vw, 52px);
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -.02em;
+  }
+  .pdp-ingredients li:has(+ li:not(.pdp-extra))::after {
+    content: '·';
+    margin-left: 22px;
+    color: var(--ink-3);
+  }
+  .pdp-ingredients .pdp-extra { font-style: italic; color: var(--deep); }
+
+  .pdp-gallery-grid { display: grid; gap: 16px; }
+  .pdp-gallery-grid li {
+    aspect-ratio: 4 / 5;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--tint);
+  }
+
+  .pdp-related .h2 { margin-bottom: clamp(28px, 4vw, 48px); }
+  .pdp-related-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px 16px;
+  }
+
+  @media (min-width: 900px) {
+    .pdp-info { grid-template-columns: 1.4fr 1fr; gap: 72px; }
+    .pdp-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .pdp-gallery-grid.count-1 { grid-template-columns: minmax(0, 420px); }
+    .pdp-gallery-grid.count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pdp-gallery-grid.count-2 li { aspect-ratio: 4 / 3; }
+    .pdp-related-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+  }
+  @media (min-width: 960px) {
+    .pdp-hero-grid { grid-template-columns: 1.35fr 1fr; gap: 64px; }
+    .pdp-media { aspect-ratio: 5 / 4; }
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-order]').forEach((box) => {
+    const out = box.querySelector<HTMLOutputElement>('[data-qty]');
+    const link = box.querySelector<HTMLAnchorElement>('[data-wa]');
+    const template = box.dataset.template ?? '';
+    if (!out || !link) return;
+    const base = link.href.split('?')[0];
+    let qty = 1;
+    box.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        qty = Math.min(24, Math.max(1, qty + Number(btn.dataset.step)));
+        out.value = String(qty);
+        link.href = `${base}?text=${encodeURIComponent(template.replace('{qty}', String(qty)))}`;
+      });
+    });
+  });
+</script>

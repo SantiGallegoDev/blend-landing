@@ -1,0 +1,75 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import EbookCover3D from './EbookCover3D.astro';
+import { formatCOP } from '../data/site';
+
+interface Props {
+  ebook: CollectionEntry<'ebooks'>;
+}
+
+const { ebook } = Astro.props;
+const e = ebook.data;
+const meta = [e.pages ? `${e.pages} páginas` : null, e.format].filter(Boolean).join(' · ');
+---
+<article class="ebook-card">
+  <a href={`/digital/${ebook.id}`} class="ebook-card-link" data-tilt>
+    <div class="ebook-card-stage">
+      <EbookCover3D
+        title={e.title}
+        subtitle={e.subtitle}
+        cover={e.cover}
+        color={e.coverColor}
+        ink={e.coverInk}
+        size="md"
+        transitionName={`ebook-${ebook.id}`}
+      />
+    </div>
+    <div class="ebook-card-body">
+      {e.draft && <span class="badge-draft">Borrador · ejemplo</span>}
+      <h3 class="ebook-card-title">{e.title}</h3>
+      {e.subtitle && <p class="small">{e.subtitle}</p>}
+      <span class="ebook-card-foot">
+        <span class="link-arrow">Ver qué incluye</span>
+        <span class="mono ebook-card-meta">{e.price ? formatCOP(e.price) : meta}</span>
+      </span>
+    </div>
+  </a>
+</article>
+
+<style>
+  .ebook-card { height: 100%; }
+  .ebook-card-link { display: flex; flex-direction: column; gap: 20px; height: 100%; }
+  .ebook-card-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 5 / 4;
+    border-radius: var(--r-md);
+    background:
+      radial-gradient(70% 60% at 50% 45%, rgba(255, 255, 255, .7), transparent 70%),
+      color-mix(in oklab, var(--sage) 26%, var(--paper));
+    transition: background-color .6s var(--ease);
+  }
+  .ebook-card-link:hover .ebook-card-stage {
+    background:
+      radial-gradient(70% 60% at 50% 45%, rgba(255, 255, 255, .8), transparent 70%),
+      color-mix(in oklab, var(--sage) 40%, var(--paper));
+  }
+  .ebook-card-body { display: grid; gap: 6px; justify-items: start; }
+  .ebook-card-title {
+    font-family: var(--serif);
+    font-weight: 320;
+    font-size: clamp(24px, 2.2vw, 30px);
+    line-height: 1.08;
+  }
+  .ebook-card-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 10px;
+  }
+  .ebook-card-meta { font-size: 13px; color: var(--ink-2); }
+  .ebook-card-link:focus-visible { outline-offset: 6px; }
+</style>

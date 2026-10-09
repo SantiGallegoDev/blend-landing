@@ -1,0 +1,91 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import EbookCard from '../../components/EbookCard.astro';
+import EbookCover3D from '../../components/EbookCover3D.astro';
+import DigitalHowTo from '../../components/DigitalHowTo.astro';
+import { getEbooks } from '../../data/catalog';
+
+const ebooks = await getEbooks();
+const hasDrafts = ebooks.some((e) => e.data.draft);
+---
+<BaseLayout
+  title="Blend Digital · E-books para tu día a día"
+  description="E-books de Blend para inspirarte en la cocina y en tu rutina. Conoce qué incluye cada uno antes de comprarlo."
+>
+  <section class="dg-hero">
+    <div class="container dg-hero-grid">
+      <div class="dg-hero-copy">
+        <p class="eyebrow" data-rise>Blend Digital</p>
+        <h1 class="h1" data-rise="2">Ideas para tu día a día, en formato <em>digital</em>.</h1>
+        <p class="lead" data-rise="3">
+          E-books prácticos para inspirarte en la cocina y en tu rutina.
+          En cada uno ves qué incluye, su índice y algunas páginas antes de decidir.
+        </p>
+      </div>
+      <div class="dg-hero-art" data-tilt aria-hidden="true">
+        <EbookCover3D title="Guías para tu día a día" mark="Blend Digital" size="lg" float />
+      </div>
+    </div>
+  </section>
+
+  <section class="container section-sm" aria-labelledby="dg-list-title">
+    <h2 id="dg-list-title" class="sr-only">Todos los e-books</h2>
+    {hasDrafts && (
+      <p class="dg-draft-note small">
+        <span class="badge-draft">Modo borrador</span>
+        Estas fichas son de ejemplo para revisar el diseño. Solo se ven en desarrollo y se reemplazan por los e-books reales.
+      </p>
+    )}
+    {ebooks.length > 0 ? (
+      <ul class="dg-grid">
+        {ebooks.map((ebook) => <li><EbookCard ebook={ebook} /></li>)}
+      </ul>
+    ) : (
+      <div class="dg-empty">
+        <p class="h3">Estamos preparando la biblioteca.</p>
+        <p class="body">Muy pronto vas a encontrar aquí nuestros e-books, con su contenido y su precio.</p>
+      </div>
+    )}
+    <DigitalHowTo />
+  </section>
+</BaseLayout>
+
+<style>
+  .dg-hero {
+    background:
+      radial-gradient(60% 70% at 78% 60%, color-mix(in oklab, var(--sage) 50%, var(--paper)), transparent 70%),
+      linear-gradient(var(--paper), var(--paper) 80%, var(--warm));
+    padding-block: clamp(40px, 7vw, 96px);
+  }
+  .dg-hero-grid { display: grid; gap: 48px; align-items: center; }
+  .dg-hero-copy { display: grid; gap: 18px; justify-items: start; }
+  .dg-hero-copy .h1 { max-width: 13ch; }
+  .dg-hero-art { display: grid; place-items: center; min-height: 340px; }
+
+  .dg-draft-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .dg-grid { display: grid; gap: 48px 24px; }
+  .dg-empty {
+    display: grid;
+    gap: 12px;
+    padding: clamp(28px, 4vw, 48px);
+    border-radius: var(--r-lg);
+    border: 1px dashed color-mix(in oklab, var(--sage-ink) 40%, transparent);
+    background: color-mix(in oklab, var(--sage) 18%, var(--paper));
+  }
+
+  @media (min-width: 700px) {
+    .dg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 900px) {
+    .dg-hero-grid { grid-template-columns: 1.2fr 1fr; }
+  }
+  @media (min-width: 1000px) {
+    .dg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+</style>

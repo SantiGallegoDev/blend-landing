@@ -1,0 +1,31 @@
+---
+---
+<section class="biz section-sm" aria-labelledby="biz-title">
+  <div class="container">
+    <div class="biz-card" data-reveal="fade-up">
+      <div>
+        <p class="eyebrow">Negocios</p>
+        <h2 id="biz-title" class="h3 biz-title">¿Quieres Blend en tu café, estudio o tienda?</h2>
+        <p class="body">Trabajamos con lugares del Eje Cafetero que se sienten como Blend. Cuéntanos del tuyo.</p>
+      </div>
+      <a href="/negocios" class="btn">Hablemos</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .biz-card {
+    display: grid;
+    gap: 24px;
+    align-items: center;
+    padding: clamp(28px, 4vw, 52px);
+    border-radius: var(--r-lg);
+    background: var(--cream);
+  }
+  .biz-title { margin: 10px 0 10px; max-width: 22ch; }
+  .biz-card .btn { justify-self: start; }
+
+  @media (min-width: 800px) {
+    .biz-card { grid-template-columns: 1fr auto; }
+  }
+</style>

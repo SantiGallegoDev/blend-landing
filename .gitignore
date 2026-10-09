@@ -10,3 +10,7 @@ dist
 .vscode
 .idea
 .claude
+
+# E-books (PDF privados): nunca al repositorio ni a public/
+ebooks/
+*.pdf

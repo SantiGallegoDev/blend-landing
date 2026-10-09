@@ -1,87 +1,78 @@
 ---
-const facts: [string, string][] = [
-  ['Quindío',         'origen'],
-  ['locales',         'ingredientes'],
-  ['en lote pequeño', 'producción'],
+import Photo from './Photo.astro';
+import paisaje from '../assets/marca/origen-paisaje-cafetero.png';
+
+interface Props {
+  headingLevel?: 'h1' | 'h2';
+}
+const { headingLevel = 'h2' } = Astro.props;
+const Heading = headingLevel;
+const top = headingLevel === 'h1';
+const enter = (n: number) => (top ? { 'data-rise': String(n) } : { 'data-reveal': 'fade-up' });
+
+const facts = [
+  ['Armenia, Quindío', 'origen'],
+  ['330 ml', 'cada lata'],
+  ['5 sabores', 'dos líneas'],
 ];
 ---
-<section class="section" id="origen">
-  <div class="origin-inner">
-    <div class="origin-art img img-cream" data-reveal="blur-in">
-      <img
-        src="/images/origin-paisaje-cafetero.png"
-        alt="Niebla matinal sobre el paisaje cultural cafetero con palmas de cera"
-        class="img-fill"
-        loading="lazy"
-        decoding="async"
-      />
-      <div class="origin-coord-chip">
-        <span class="chip"><span class="dot"></span>4.5339° N · 75.6811° W</span>
-      </div>
+<section class="origin section" id="origen" aria-labelledby="origin-title">
+  <div class="container origin-inner">
+    <div class="origin-art" {...(top ? { 'data-rise': '' } : { 'data-reveal': 'blur-in' })}>
+      <Photo src={paisaje} alt="Niebla de la mañana sobre el paisaje cultural cafetero, con palmas de cera" sizes="(min-width: 900px) 50vw, 100vw" />
+      <span class="chip origin-chip"><span class="chip-dot" style="--flavor: var(--detox)"></span>4.5339° N · 75.6811° O</span>
     </div>
     <div class="origin-copy">
-      <div class="eyebrow" data-reveal="fade-up">Origen · Armenia, Quindío</div>
-      <h2 class="h-section" data-reveal="fade-up">
-        del <span class="accent">corazón cafetero,</span><br />despacio al mundo.
-      </h2>
-      <p class="body-lg" style="margin-top: 22px;" data-reveal="fade-up">
-        Crecimos entre montañas verdes y mañanas de niebla. Blend nace
-        en Armenia, en una cocina pequeña, con frutas del eje cafetero
-        y la costumbre de tomarse las cosas sin afán.
+      <p class="eyebrow" {...enter(2)}>Origen</p>
+      <Heading id="origin-title" class:list={[top ? 'h1' : 'h2']} {...enter(3)}>
+        Del corazón cafetero, <em>despacio</em> al mundo.
+      </Heading>
+      <p class="body origin-body" {...enter(4)}>
+        Blend nace en Armenia, Quindío, entre montañas verdes y mañanas de niebla.
+        Preparamos cada lata en lotes pequeños, con la costumbre de hacer las cosas sin afán.
       </p>
-      <div class="origin-facts" data-reveal-children>
-        {facts.map(([n, l]) => (
-          <div class="origin-fact">
-            <div class="serif" style="font-size: 22px; font-weight: 300;">{n}</div>
-            <div class="mono fact-l">{l}</div>
+      <dl class="origin-facts" data-reveal-children>
+        {facts.map(([value, label]) => (
+          <div>
+            <dt class="eyebrow">{label}</dt>
+            <dd>{value}</dd>
           </div>
         ))}
-      </div>
+      </dl>
     </div>
   </div>
 </section>
 
 <style>
-  .origin-inner {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 36px;
-    align-items: center;
-  }
+  .origin-inner { display: grid; gap: 40px; align-items: center; }
   .origin-art {
-    height: clamp(260px, 45vw, 520px);
     position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--r-lg);
+    overflow: hidden;
   }
-  .origin-coord-chip {
-    position: absolute;
-    top: 18px;
-    left: 18px;
-  }
+  .origin-chip { position: absolute; top: 16px; left: 16px; font-family: var(--mono); font-size: 12px; }
+  .origin-copy { display: grid; gap: 18px; justify-items: start; }
+  .origin-body { margin-top: 4px; }
   .origin-facts {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    margin-top: 30px;
-    max-width: 480px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 520px;
+    margin: 18px 0 0;
   }
-  .origin-fact {
-    border-top: 1px solid var(--ink12);
-    padding-top: 10px;
-  }
-  .fact-l {
-    font-size: 10px;
-    color: var(--ink60);
-    margin-top: 4px;
-    text-transform: uppercase;
-    letter-spacing: .14em;
+  .origin-facts div { border-top: 1px solid var(--line); padding-top: 12px; }
+  .origin-facts dt { font-size: 11px; }
+  .origin-facts dd {
+    margin: 6px 0 0;
+    font-family: var(--serif);
+    font-size: clamp(20px, 2vw, 26px);
+    font-weight: 320;
+    line-height: 1.1;
   }
 
   @media (min-width: 900px) {
-    .origin-inner {
-      grid-template-columns: 1fr 1.15fr;
-      gap: 64px;
-    }
-    .origin-coord-chip { top: 24px; left: 24px; }
-    .origin-facts { margin-top: 36px; gap: 18px; }
+    .origin-inner { grid-template-columns: 1.1fr 1fr; gap: 72px; }
   }
 </style>

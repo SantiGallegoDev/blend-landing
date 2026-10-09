@@ -1,0 +1,129 @@
+---
+// Cuadrícula de bebidas con filtro por línea. Al pasar el cursor o enfocar una lata,
+// el contenedor [data-tint-scope] más cercano toma el color de ese sabor.
+import type { CollectionEntry } from 'astro:content';
+import DrinkCard from './DrinkCard.astro';
+import { drinkLines } from '../data/site';
+
+interface Props {
+  drinks: CollectionEntry<'bebidas'>[];
+  filter?: boolean;
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { drinks, filter = true, headingLevel = 'h3' } = Astro.props;
+---
+<div class="drink-grid-wrap" data-drink-grid>
+  {filter && (
+    <div class="drink-filter" role="group" aria-label="Filtrar por línea">
+      <button type="button" aria-pressed="true" data-filter="all">Todas</button>
+      {Object.entries(drinkLines).map(([key, line]) => (
+        <button type="button" aria-pressed="false" data-filter={key}>{line.name}</button>
+      ))}
+    </div>
+  )}
+  <ul class="drink-grid" data-count={drinks.length}>
+    {drinks.map((drink) => (
+      <li data-line={drink.data.line}>
+        <DrinkCard drink={drink} headingLevel={headingLevel} />
+      </li>
+    ))}
+  </ul>
+  <p class="sr-only" aria-live="polite" data-filter-status></p>
+</div>
+
+<style>
+  .drink-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: clamp(28px, 4vw, 44px);
+  }
+  .drink-filter button {
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .5);
+    font-size: 14px;
+    font-weight: 450;
+    transition: background-color .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .drink-filter button:hover { border-color: var(--ink); }
+  .drink-filter button[aria-pressed='true'] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--cream);
+  }
+
+  /* Móvil: tira horizontal con scroll-snap */
+  .drink-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: min(72vw, 300px);
+    gap: 16px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--pad-x);
+    margin-inline: calc(var(--pad-x) * -1);
+    padding: 4px var(--pad-x) 18px;
+    scrollbar-width: none;
+  }
+  .drink-grid::-webkit-scrollbar { display: none; }
+  .drink-grid > li { scroll-snap-align: start; }
+  .drink-grid > li[hidden] { display: none; }
+
+  @media (min-width: 760px) {
+    .drink-grid {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-columns: auto;
+      gap: 40px 24px;
+      overflow: visible;
+      margin-inline: 0;
+      padding: 0;
+    }
+  }
+  @media (min-width: 1140px) {
+    .drink-grid[data-count='5'] { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px; }
+    .drink-grid[data-count='4'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-drink-grid]').forEach((wrap) => {
+    const scope = wrap.closest<HTMLElement>('[data-tint-scope]');
+    const items = [...wrap.querySelectorAll<HTMLLIElement>('.drink-grid > li')];
+    const status = wrap.querySelector<HTMLElement>('[data-filter-status]');
+
+    if (scope) {
+      const set = (color?: string) =>
+        color ? scope.style.setProperty('--flavor', color) : scope.style.removeProperty('--flavor');
+      wrap.querySelectorAll<HTMLElement>('.drink-card').forEach((card) => {
+        const color = card.dataset.flavor;
+        card.addEventListener('pointerenter', () => set(color));
+        card.addEventListener('focusin', () => set(color));
+      });
+      wrap.addEventListener('pointerleave', () => set());
+      wrap.addEventListener('focusout', (e) => {
+        if (!wrap.contains(e.relatedTarget as Node)) set();
+      });
+    }
+
+    const buttons = [...wrap.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const value = btn.dataset.filter;
+        buttons.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+        let shown = 0;
+        items.forEach((li) => {
+          const show = value === 'all' || li.dataset.line === value;
+          li.hidden = !show;
+          if (show) shown++;
+        });
+        if (status) status.textContent = `${shown} bebidas`;
+      });
+    });
+  });
+</script>

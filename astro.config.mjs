@@ -1,7 +1,17 @@
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 
+// ⚠︎ `site` es provisional hasta definir el dominio definitivo.
 export default defineConfig({
   site: 'https://blend.co',
   output: 'static',
   compressHTML: true,
+  // El CSS total pesa ~7 KB: incrustarlo evita peticiones que bloquean el primer render.
+  build: { inlineStylesheets: 'always' },
+  integrations: [
+    sitemap({
+      // Páginas internas o aún en borrador legal: fuera del sitemap.
+      filter: (page) => !/\/(brand|terminos|privacidad)\/?$/.test(page),
+    }),
+  ],
 });

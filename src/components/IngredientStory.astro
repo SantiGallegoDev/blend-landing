@@ -1,0 +1,225 @@
+---
+// Ingredientes de la etiqueta anclados sobre la foto real.
+// x / y = posición del punto en % de la imagen; side = hacia dónde sale la etiqueta.
+import Photo from './Photo.astro';
+import detoxBodegon from '../assets/bebidas/detox/bodegon-ingredientes.png';
+import sunsetBodegon from '../assets/bebidas/sunset/bodegon-ingredientes.png';
+
+type Chip = { label: string; x: number; y: number; side: 'left' | 'right' };
+
+const stories: {
+  id: string;
+  name: string;
+  flavor: string;
+  img: typeof detoxBodegon;
+  alt: string;
+  chips: Chip[];
+}[] = [
+  {
+    id: 'detox',
+    name: 'Detox',
+    flavor: '#CAC05F',
+    img: detoxBodegon,
+    alt: 'Lata de Detox rodeada de piña, hierbabuena, apio, pepino y limón',
+    chips: [
+      { label: 'Piña', x: 54, y: 52, side: 'left' },
+      { label: 'Hierbabuena', x: 47, y: 76, side: 'left' },
+      { label: 'Apio', x: 85, y: 48, side: 'right' },
+      { label: 'Limón', x: 95, y: 64, side: 'left' },
+      { label: 'Pepino', x: 88, y: 82, side: 'left' },
+    ],
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset',
+    flavor: '#EA8B15',
+    img: sunsetBodegon,
+    alt: 'Lata de Sunset junto a zanahoria, limón, cúrcuma y jengibre',
+    chips: [
+      { label: 'Zanahoria', x: 46, y: 76, side: 'left' },
+      { label: 'Limón', x: 88, y: 54, side: 'left' },
+      { label: 'Jengibre', x: 95, y: 74, side: 'left' },
+      { label: 'Cúrcuma', x: 81, y: 86, side: 'right' },
+    ],
+  },
+];
+---
+<section class="ingredients section" aria-labelledby="ing-title">
+  <div class="container">
+    <div class="ing-stage">
+      <div class="ing-copy">
+        <p class="eyebrow" data-reveal="fade-up">Ingredientes</p>
+        <h2 id="ing-title" class="h2" data-reveal="fade-up">Ingredientes que <em>reconoces</em>.</h2>
+        <p class="body" data-reveal="fade-up">
+          Pocos, con nombre propio y escritos en la etiqueta. Lo que lees es lo que tomas.
+        </p>
+        <div class="ing-tabs" role="tablist" aria-label="Elige una bebida" data-reveal="fade-up">
+          {stories.map((s, i) => (
+            <button
+              type="button"
+              role="tab"
+              id={`ing-tab-${s.id}`}
+              aria-controls={`ing-panel-${s.id}`}
+              aria-selected={i === 0 ? 'true' : 'false'}
+              tabindex={i === 0 ? 0 : -1}
+              style={`--flavor:${s.flavor}`}
+            >
+              <span class="chip-dot"></span>{s.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {stories.map((s, i) => (
+        <figure
+          class="ing-panel flavored"
+          role="tabpanel"
+          id={`ing-panel-${s.id}`}
+          aria-labelledby={`ing-tab-${s.id}`}
+          style={`--flavor:${s.flavor}`}
+          hidden={i !== 0}
+        >
+          <div class="ing-media">
+            <div class="ing-photo">
+              <Photo src={s.img} alt={s.alt} sizes="(min-width: 1400px) 1360px, 100vw" />
+            </div>
+            <ul class="ing-chips" data-reveal-children aria-label={`Ingredientes de ${s.name}`}>
+              {s.chips.map((c) => (
+                <li class="ing-chip" data-side={c.side} style={`--x:${c.x}%;--y:${c.y}%`}>
+                  <span class="ing-dot" aria-hidden="true"></span>
+                  <span class="ing-label">{c.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <figcaption class="ing-caption">
+            <a href={`/bebidas/${s.id}`} class="link-arrow">Conoce {s.name}</a>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .ing-stage { position: relative; display: grid; gap: 28px; }
+  .ing-copy { display: grid; gap: 16px; justify-items: start; }
+  .ing-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .ing-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 0 18px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .7);
+    font-size: 15px;
+    font-weight: 450;
+    transition: background-color .3s var(--ease), color .3s var(--ease);
+  }
+  .ing-tabs button[aria-selected='true'] { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+  .ing-panel { margin: 0; display: grid; gap: 18px; }
+  .ing-panel:not([hidden]) { animation: ing-in .7s var(--ease); }
+  @keyframes ing-in { from { opacity: 0; } }
+
+  .ing-media { position: relative; }
+  .ing-photo {
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--tint);
+  }
+
+  /* Móvil: los ingredientes van debajo de la foto, como lista. */
+  .ing-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .ing-chip { display: inline-flex; }
+  .ing-dot { display: none; }
+  .ing-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--tint);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .ing-caption { display: flex; justify-content: flex-end; }
+
+  @media (min-width: 1000px) {
+    .ing-copy {
+      position: absolute;
+      z-index: 2;
+      top: clamp(32px, 5vw, 64px);
+      left: clamp(32px, 5vw, 64px);
+      max-width: min(36%, 440px);
+    }
+    .ing-chips { position: absolute; inset: 0; display: block; margin: 0; }
+    .ing-chip {
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      align-items: center;
+      gap: 10px;
+      translate: 0 -50%;
+    }
+    .ing-chip[data-side='left'] { flex-direction: row-reverse; translate: -100% -50%; }
+    .ing-chip[data-side='left'] .ing-dot { margin-right: -7px; }
+    .ing-chip[data-side='right'] .ing-dot { margin-left: -7px; }
+    .ing-dot {
+      display: block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cream);
+      box-shadow: 0 0 0 4px color-mix(in oklab, var(--cream) 45%, transparent);
+      animation: pulse-ring 2.6s var(--ease) infinite;
+    }
+    .ing-label { font-size: 14px; background: rgba(251, 247, 239, .9); }
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--cream) 45%, transparent); }
+    50% { box-shadow: 0 0 0 9px color-mix(in oklab, var(--cream) 10%, transparent); }
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('.ing-stage').forEach((stage) => {
+    const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const select = (tab: HTMLButtonElement) => {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        const panel = document.getElementById(t.getAttribute('aria-controls') ?? '');
+        if (panel) {
+          panel.hidden = !on;
+          // Re-dispara la entrada escalonada de las etiquetas.
+          panel.querySelector('[data-reveal-children]')?.classList.add('is-visible');
+        }
+      });
+    };
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => select(tab));
+      tab.addEventListener('keydown', (e) => {
+        const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!dir) return;
+        e.preventDefault();
+        const next = tabs[(i + dir + tabs.length) % tabs.length];
+        next.focus();
+        select(next);
+      });
+    });
+  });
+</script>

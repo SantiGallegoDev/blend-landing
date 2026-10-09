@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import LegalDraft from '../components/LegalDraft.astro';
+
+// ⚠︎ Esqueleto. El texto definitivo debe redactarlo o revisarlo un abogado
+// (Ley 1480 de 2011, derecho de retracto en contenido digital, etc.).
+const sections = [
+  { title: 'Quiénes somos', note: 'Razón social, NIT, dirección y datos de contacto de Blend.' },
+  { title: 'Productos y precios', note: 'Cómo se publican los precios (en pesos colombianos, impuestos incluidos) y la disponibilidad.' },
+  { title: 'Pedidos y entregas de bebidas', note: 'Cobertura de entrega, tiempos, costo del domicilio y conservación en frío.' },
+  { title: 'E-books y entrega digital', note: 'Formato, forma de entrega, vigencia del enlace de descarga y uso personal del contenido.' },
+  { title: 'Pagos', note: 'Medios de pago a través de Mercado Pago y tratamiento de pagos rechazados o pendientes.' },
+  { title: 'Retracto, cambios y devoluciones', note: 'Política para bebidas perecederas y para contenido digital, según concepto legal.' },
+  { title: 'Facturación electrónica', note: 'Cómo y cuándo se emite la factura electrónica de cada compra.' },
+];
+---
+<BaseLayout title="Términos y condiciones · Blend" description="Términos y condiciones de compra en Blend." noindex>
+  <LegalDraft
+    title="Términos y condiciones"
+    intro="Estamos preparando este documento con asesoría legal. Mientras tanto, si tienes una pregunta sobre tu pedido, escríbenos."
+    sections={sections}
+  />
+</BaseLayout>

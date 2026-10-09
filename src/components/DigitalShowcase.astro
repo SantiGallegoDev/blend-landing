@@ -1,0 +1,86 @@
+---
+import EbookCard from './EbookCard.astro';
+import DigitalHowTo from './DigitalHowTo.astro';
+import { getEbooks } from '../data/catalog';
+
+const ebooks = await getEbooks();
+---
+<section class="digital" aria-labelledby="digital-title">
+  <div class="container section digital-inner">
+    <header class="digital-head">
+      <div>
+        <p class="eyebrow" data-reveal="fade-up">Blend Digital</p>
+        <h2 id="digital-title" class="h2" data-reveal="fade-up">
+          Ideas para tu día a día, en formato <em>digital</em>.
+        </h2>
+      </div>
+      <div class="digital-intro" data-reveal="fade-up">
+        <p class="body">E-books prácticos para inspirarte en la cocina y en tu rutina. Sabes qué incluye cada uno antes de comprarlo.</p>
+        <a href="/digital" class="link-arrow">Ver todos los e-books</a>
+      </div>
+    </header>
+
+    {ebooks.length > 0 ? (
+      <ul class="ebook-grid">
+        {ebooks.slice(0, 3).map((ebook) => (
+          <li><EbookCard ebook={ebook} /></li>
+        ))}
+      </ul>
+    ) : (
+      <div class="digital-empty">
+        <p class="h3">Estamos preparando la biblioteca.</p>
+        <p class="body">Muy pronto vas a encontrar aquí nuestros e-books, con su contenido y su precio.</p>
+      </div>
+    )}
+
+    <DigitalHowTo />
+  </div>
+</section>
+
+<style>
+  .digital {
+    position: relative;
+    background: var(--paper);
+  }
+  .digital::before,
+  .digital::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: clamp(80px, 10vw, 160px);
+    pointer-events: none;
+  }
+  .digital::before { top: 0; background: linear-gradient(var(--warm), transparent); }
+  .digital::after { bottom: 0; background: linear-gradient(transparent, var(--warm)); }
+  .digital-inner { position: relative; z-index: 1; }
+
+  .digital-head {
+    display: grid;
+    gap: 24px;
+    margin-bottom: clamp(36px, 5vw, 60px);
+  }
+  .digital-head .h2 { max-width: 15ch; }
+  .digital-intro { display: grid; gap: 16px; justify-items: start; max-width: 44ch; }
+
+  .ebook-grid {
+    display: grid;
+    gap: 40px 24px;
+  }
+  .digital-empty {
+    display: grid;
+    gap: 12px;
+    padding: clamp(28px, 4vw, 48px);
+    border-radius: var(--r-lg);
+    border: 1px dashed color-mix(in oklab, var(--sage-ink) 40%, transparent);
+    background: color-mix(in oklab, var(--sage) 18%, var(--paper));
+  }
+
+  @media (min-width: 700px) {
+    .ebook-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1000px) {
+    .digital-head { grid-template-columns: 1fr auto; align-items: end; }
+    .ebook-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+</style>

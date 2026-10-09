@@ -1,86 +1,130 @@
 ---
-import { footerCols } from '../data/site';
----
-<footer class="site-footer">
-  <div class="footer-grid" data-reveal="fade">
-    <div class="footer-brand">
-      <div class="wordmark footer-wordmark">Blend</div>
-      <p class="footer-blurb">
-        Wellness sin obsesión. Hecho en Armenia, Quindío,
-        con cariño y poca prisa.
-      </p>
-    </div>
-    {footerCols.map(col => (
-      <div class="footer-col">
-        <div class="eyebrow footer-eyebrow">{col.title}</div>
-        <ul class="footer-list">
-          {col.items.map(i => <li>{i}</li>)}
-        </ul>
-      </div>
-    ))}
-  </div>
+import logo from '../assets/marca/logo-blend.webp';
+import { getDrinks } from '../data/catalog';
+import { site, waLink, instagramUrl } from '../data/site';
 
-  <div class="footer-bottom">
-    <span>© Blend · MMXXV</span>
-    <span class="footer-tag">respira, despacio.</span>
-    <span>Arm · 4.5339° N, 75.6811° W</span>
+const drinks = await getDrinks();
+const year = new Date().getFullYear();
+
+const cols = [
+  {
+    title: 'Bebidas',
+    links: drinks.map((d) => ({ label: d.data.name, href: `/bebidas/${d.id}` })),
+  },
+  {
+    title: 'Digital',
+    links: [
+      { label: 'Todos los e-books', href: '/digital' },
+      { label: 'Cómo los recibes', href: '/ayuda#e-books' },
+    ],
+  },
+  {
+    title: 'Blend',
+    links: [
+      { label: 'Nosotros', href: '/nosotros' },
+      { label: 'Negocios', href: '/negocios' },
+      { label: 'Ayuda', href: '/ayuda' },
+    ],
+  },
+  {
+    title: 'Contacto',
+    links: [
+      { label: 'WhatsApp', href: waLink(), external: true },
+      { label: `@${site.instagram}`, href: instagramUrl, external: true },
+      { label: site.email, href: `mailto:${site.email}` },
+    ],
+  },
+];
+---
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <span class="logo footer-logo" style={`--logo:url(${logo.src})`} role="img" aria-label="Blend"></span>
+        <p class="footer-tag">Bienestar sin obsesión.</p>
+        <p class="footer-place">Hecho en {site.city}.</p>
+      </div>
+      <div class="footer-cols">
+        {cols.map((col) => (
+          <nav aria-label={col.title}>
+            <p class="eyebrow footer-eyebrow">{col.title}</p>
+            <ul>
+              {col.links.map((l) => (
+                <li>
+                  <a
+                    href={l.href}
+                    target={'external' in l && l.external ? '_blank' : undefined}
+                    rel={'external' in l && l.external ? 'noopener' : undefined}
+                  >{l.label}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© {year} Blend · {site.city}</span>
+      <span class="footer-legal">
+        <a href="/terminos">Términos</a>
+        <a href="/privacidad">Privacidad</a>
+      </span>
+    </div>
   </div>
 </footer>
 
 <style>
-  .site-footer {
+  .footer {
     background: var(--ink);
     color: var(--cream);
-    padding: clamp(40px, 6vw, 56px) var(--pad-x) 40px;
+    padding-block: clamp(56px, 8vw, 96px) 32px;
   }
-  .footer-grid {
+  .footer-top {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 30px;
-    align-items: start;
+    gap: 48px;
   }
-  .footer-wordmark {
-    font-size: clamp(40px, 5vw, 56px);
+  .footer-logo { height: clamp(48px, 6vw, 72px); color: var(--cream); }
+  .footer-tag {
+    margin-top: 22px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(24px, 2.6vw, 32px);
+    font-weight: 300;
   }
-  .footer-blurb {
-    font-size: 13px;
-    opacity: .6;
-    margin-top: 14px;
-    line-height: 1.6;
-    max-width: 300px;
+  .footer-place { margin-top: 6px; font-size: 14px; color: rgba(246, 239, 227, .72); }
+  .footer-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px 24px;
   }
-  .footer-eyebrow {
-    color: rgba(246, 239, 227, .5);
+  .footer-eyebrow { color: rgba(246, 239, 227, .66); margin-bottom: 14px; }
+  .footer-cols ul { display: grid; gap: 4px; }
+  .footer-cols a {
+    display: inline-block;
+    padding: 4px 0;
+    font-size: 15px;
+    color: rgba(246, 239, 227, .92);
+    overflow-wrap: anywhere;
+    transition: color .3s var(--ease);
   }
-  .footer-list {
-    font-size: 14px;
-    line-height: 2;
-    opacity: .9;
-    margin-top: 14px;
-  }
-  .footer-list li { letter-spacing: .01em; }
-
+  .footer-cols a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
   .footer-bottom {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 36px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 56px;
     padding-top: 22px;
-    border-top: 1px solid rgba(246, 239, 227, .12);
-    font-size: 11px;
-    opacity: .5;
-    letter-spacing: .06em;
+    border-top: 1px solid rgba(246, 239, 227, .14);
+    font-size: 13px;
+    color: rgba(246, 239, 227, .7);
   }
+  .footer-legal { display: flex; gap: 20px; }
+  .footer-legal a:hover { color: var(--cream); }
+  .footer :focus-visible { outline-color: var(--cream); }
 
-  @media (min-width: 760px) {
-    .footer-grid {
-      grid-template-columns: 1.4fr 1fr 1fr 1fr;
-      gap: 40px;
-    }
-    .footer-bottom {
-      flex-direction: row;
-      justify-content: space-between;
-      margin-top: 50px;
-    }
+  @media (min-width: 900px) {
+    .footer-top { grid-template-columns: 1fr 2fr; }
+    .footer-cols { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
 </style>

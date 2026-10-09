@@ -1,0 +1,29 @@
+---
+// Estructura de un documento legal pendiente de redacción profesional.
+interface Props {
+  title: string;
+  intro: string;
+  sections: { title: string; note: string }[];
+}
+const { title, intro, sections } = Astro.props;
+---
+<section class="container section legal">
+  <p class="eyebrow">Documento en preparación</p>
+  <h1 class="h1">{title}</h1>
+  <p class="lead">{intro}</p>
+  <ol class="legal-list">
+    {sections.map((s, i) => (
+      <li>
+        <h2 class="h3"><span class="mono">{String(i + 1).padStart(2, '0')}</span> {s.title}</h2>
+        <p class="body">{s.note}</p>
+      </li>
+    ))}
+  </ol>
+</section>
+
+<style>
+  .legal { display: grid; gap: 20px; max-width: 860px; }
+  .legal-list { display: grid; margin-top: 24px; border-top: 1px solid var(--line); }
+  .legal-list li { display: grid; gap: 8px; padding-block: 24px; border-bottom: 1px solid var(--line); }
+  .legal-list .mono { font-size: 14px; color: var(--ink-2); margin-right: 8px; }
+</style>

@@ -1,0 +1,68 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Origin from '../components/Origin.astro';
+import Moments from '../components/Moments.astro';
+import BusinessTeaser from '../components/BusinessTeaser.astro';
+
+const principles = [
+  {
+    title: 'Pocos ingredientes',
+    body: 'Cada lata lleva solo lo que dice su etiqueta, con nombres que reconoces.',
+  },
+  {
+    title: 'Sin azúcar añadida',
+    body: 'El sabor viene de la fruta, las raíces y el café, no de azúcar extra.',
+  },
+  {
+    title: 'Café de especialidad',
+    body: 'Nuestra línea Cold Coffee usa café de especialidad de tostión media.',
+  },
+  {
+    title: 'Bienestar sin obsesión',
+    body: 'Cuidarte también puede ser rico, tranquilo y sin reglas imposibles.',
+  },
+];
+---
+<BaseLayout
+  title="Nosotros · Blend, desde Armenia, Quindío"
+  description="Blend nace en Armenia, Quindío. Bebidas en lata con pocos ingredientes y sin azúcar añadida, y e-books para inspirarte en tu rutina."
+>
+  <Origin headingLevel="h1" />
+
+  <section class="principles section-sm" aria-labelledby="principles-title">
+    <div class="container">
+      <h2 id="principles-title" class="h2" data-reveal="fade-up">Lo que nos <em>importa</em>.</h2>
+      <ul class="principles-grid" data-reveal-children>
+        {principles.map((p, i) => (
+          <li>
+            <span class="mono principles-n">{String(i + 1).padStart(2, '0')}</span>
+            <h3 class="h3">{p.title}</h3>
+            <p class="body">{p.body}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <Moments />
+  <BusinessTeaser />
+</BaseLayout>
+
+<style>
+  .principles .h2 { margin-bottom: clamp(32px, 5vw, 56px); }
+  .principles-grid { display: grid; gap: 32px; }
+  .principles-grid li {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .principles-n { font-size: 13px; color: var(--ink-2); }
+  @media (min-width: 760px) {
+    .principles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
+  }
+  @media (min-width: 1100px) {
+    .principles-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+</style>

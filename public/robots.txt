@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /brand
 
-Sitemap: https://blend.co/sitemap.xml
+Sitemap: https://blend.co/sitemap-index.xml

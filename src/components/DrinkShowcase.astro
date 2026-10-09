@@ -1,0 +1,67 @@
+---
+import DrinkGrid from './DrinkGrid.astro';
+import { getDrinks } from '../data/catalog';
+import { drinkLines } from '../data/site';
+
+const drinks = await getDrinks();
+---
+<section class="showcase flavored" data-tint-scope aria-labelledby="showcase-title">
+  <div class="container section showcase-inner">
+    <header class="showcase-head">
+      <div>
+        <p class="eyebrow" data-reveal="fade-up">Blend Drinks</p>
+        <h2 id="showcase-title" class="h2" data-reveal="fade-up">Elige tu <em>sabor</em>.</h2>
+      </div>
+      <div class="showcase-lines" data-reveal="fade-up">
+        {Object.values(drinkLines).map((line) => (
+          <p><strong>{line.name}.</strong> {line.short}</p>
+        ))}
+        <a href="/bebidas" class="link-arrow">Ver todas las bebidas</a>
+      </div>
+    </header>
+    <DrinkGrid drinks={drinks} />
+  </div>
+</section>
+
+<style>
+  .showcase {
+    position: relative;
+    background: var(--tint);
+    transition: background-color .9s var(--ease);
+  }
+  /* Fundidos con las secciones vecinas: la "mezcla" entre colores. */
+  .showcase::before,
+  .showcase::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: clamp(80px, 10vw, 160px);
+    pointer-events: none;
+  }
+  .showcase::before { top: 0; background: linear-gradient(var(--warm), transparent); }
+  .showcase::after { bottom: 0; background: linear-gradient(transparent, var(--warm)); }
+  .showcase-inner { position: relative; z-index: 1; }
+
+  .showcase-head {
+    display: grid;
+    gap: 24px;
+    margin-bottom: clamp(32px, 5vw, 56px);
+  }
+  .showcase-lines {
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+    max-width: 44ch;
+    color: var(--ink-2);
+  }
+  .showcase-lines strong { color: var(--ink); font-weight: 500; }
+  .showcase-lines .link-arrow { margin-top: 10px; color: var(--ink); }
+
+  @media (min-width: 900px) {
+    .showcase-head {
+      grid-template-columns: 1fr auto;
+      align-items: end;
+    }
+  }
+</style>

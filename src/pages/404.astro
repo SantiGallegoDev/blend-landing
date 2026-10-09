@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Página no encontrada · Blend" description="Esta página no existe." noindex>
+  <section class="container section nf">
+    <p class="eyebrow">Error 404</p>
+    <h1 class="display">Esta página se nos <em>derramó</em>.</h1>
+    <p class="lead">No la encontramos, pero lo demás sigue en su lugar.</p>
+    <div class="nf-links">
+      <a class="btn btn-solid" href="/bebidas">Ver las bebidas</a>
+      <a class="btn" href="/digital">Ver los e-books</a>
+      <a class="link-arrow" href="/">Volver al inicio</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .nf { display: grid; gap: 22px; justify-items: start; min-height: 60vh; align-content: center; }
+  .nf .display { max-width: 12ch; }
+  .nf-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 8px; }
+</style>

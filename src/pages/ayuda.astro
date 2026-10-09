@@ -1,0 +1,122 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site, waLink, instagramUrl } from '../data/site';
+
+// Respuestas que reflejan cómo funciona Blend hoy (pedidos por WhatsApp).
+// Al activar el pago en línea (Fase 4) se actualizan junto con site.checkoutEnabled.
+const groups = [
+  {
+    id: 'bebidas',
+    title: 'Bebidas',
+    items: [
+      {
+        q: '¿Dónde entregan?',
+        a: `Por ahora entregamos en ${site.deliveryArea}. Si estás en otra ciudad, escríbenos y te contamos.`,
+      },
+      {
+        q: '¿Cómo hago un pedido?',
+        a: 'Elige tus bebidas y escríbenos por WhatsApp desde la ficha de cada una. Ahí coordinamos la entrega y el pago. Muy pronto podrás pagar en línea desde la web.',
+      },
+      {
+        q: '¿Cómo se conservan?',
+        a: 'Mantenlas refrigeradas, como indica la etiqueta, y tómalas frías.',
+      },
+      {
+        q: '¿Qué llevan?',
+        a: 'Cada ficha muestra los ingredientes tal como aparecen en la etiqueta. Todas son latas de 330 ml sin azúcar añadida.',
+      },
+    ],
+  },
+  {
+    id: 'e-books',
+    title: 'E-books',
+    items: [
+      { q: '¿En qué formato llegan?', a: 'En PDF, para leer en el teléfono, la tablet o el computador.' },
+      {
+        q: '¿Cómo los recibo?',
+        a: site.checkoutEnabled
+          ? 'Cuando Mercado Pago confirma tu pago, te enviamos un correo con un enlace de descarga.'
+          : 'Por ahora coordinamos la compra por WhatsApp. Muy pronto podrás pagarlos aquí con Mercado Pago y recibirlos automáticamente en tu correo.',
+      },
+      {
+        q: '¿Puedo ver el contenido antes de comprar?',
+        a: 'Sí. Cada ficha muestra qué incluye el e-book y su índice.',
+      },
+    ],
+  },
+  {
+    id: 'pagos',
+    title: 'Pagos',
+    items: [
+      {
+        q: '¿Cómo puedo pagar?',
+        a: site.checkoutEnabled
+          ? 'Con Mercado Pago: tarjeta, PSE o Efecty. Nunca pedimos los datos de tu tarjeta en esta web.'
+          : 'Hoy acordamos el pago contigo por WhatsApp. Estamos preparando el pago en línea con Mercado Pago.',
+      },
+    ],
+  },
+];
+---
+<BaseLayout
+  title="Ayuda · Blend"
+  description="Preguntas frecuentes sobre entregas, e-books y pagos en Blend."
+>
+  <section class="container section help">
+    <header class="help-head">
+      <p class="eyebrow">Ayuda</p>
+      <h1 class="h1">¿En qué te <em>ayudamos</em>?</h1>
+      <p class="lead">Si no encuentras tu respuesta, escríbenos y te contestamos.</p>
+      <div class="help-contact">
+        <a class="btn btn-solid" href={waLink('Hola Blend, tengo una pregunta.')} target="_blank" rel="noopener">WhatsApp</a>
+        <a class="btn" href={`mailto:${site.email}`}>{site.email}</a>
+        <a class="link-arrow" href={instagramUrl} target="_blank" rel="noopener">@{site.instagram}</a>
+      </div>
+    </header>
+
+    {groups.map((g) => (
+      <section class="help-group" id={g.id} aria-labelledby={`${g.id}-title`}>
+        <h2 id={`${g.id}-title`} class="h3">{g.title}</h2>
+        <div class="help-list">
+          {g.items.map((item) => (
+            <details>
+              <summary>{item.q}</summary>
+              <p class="body">{item.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+    ))}
+  </section>
+</BaseLayout>
+
+<style>
+  .help-head { display: grid; gap: 18px; justify-items: start; margin-bottom: clamp(40px, 6vw, 72px); }
+  .help-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 6px; }
+  .help-group {
+    display: grid;
+    gap: 16px;
+    padding-block: 32px;
+    border-top: 1px solid var(--line);
+  }
+  .help-list { display: grid; }
+  .help-list details { border-bottom: 1px solid var(--line); }
+  .help-list summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 0;
+    font-size: 18px;
+    font-weight: 450;
+  }
+  .help-list summary::-webkit-details-marker { display: none; }
+  .help-list summary::after { content: '+'; font-size: 22px; line-height: 1; transition: rotate .3s var(--ease); }
+  .help-list details[open] summary::after { rotate: 45deg; }
+  .help-list details p { padding-bottom: 20px; }
+
+  @media (min-width: 900px) {
+    .help-group { grid-template-columns: 1fr 2fr; gap: 48px; }
+  }
+</style>

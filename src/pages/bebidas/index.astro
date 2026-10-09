@@ -1,0 +1,124 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Photo from '../../components/Photo.astro';
+import DrinkGrid from '../../components/DrinkGrid.astro';
+import { getDrinks } from '../../data/catalog';
+import { site, drinkLines, waLink } from '../../data/site';
+import sunset from '../../assets/bebidas/sunset/terrazo-durazno.png';
+
+const drinks = await getDrinks();
+---
+<BaseLayout
+  title="Blend Drinks · Bebidas frías en lata"
+  description="Cinco bebidas en lata de 330 ml: Detox, Pink Cloud y Sunset (línea Flow), Latte Ice y Americano Ice (Cold Coffee). Sin azúcar añadida. Entregas en Armenia y el Eje Cafetero."
+>
+  <section class="cat-hero flavored" style="--flavor: var(--sunset)">
+    <div class="cat-hero-media">
+      <Photo src={sunset} alt="Lata de Sunset sobre terrazo frente a una pared color durazno" eager sizes="(min-width: 700px) 62vw, 100vw" focus="72% 50%" />
+    </div>
+    <div class="container cat-hero-copy">
+      <p class="eyebrow" data-rise>Blend Drinks</p>
+      <h1 class="h1" data-rise="2">Cinco latas frías, cada una con su <em>carácter</em>.</h1>
+      <p class="lead" data-rise="3">Fruta, raíces y café de especialidad, sin azúcar añadida. Elige por sabor o por momento del día.</p>
+    </div>
+  </section>
+
+  <section class="cat-lines container" aria-label="Líneas">
+    {Object.entries(drinkLines).map(([key, line]) => (
+      <div class="cat-line" data-reveal="fade-up">
+        <p class="eyebrow">Línea</p>
+        <h2 class="h3">{line.name}</h2>
+        <p class="body">{line.short}</p>
+        <p class="small">{drinks.filter((d) => d.data.line === key).map((d) => d.data.name).join(' · ')}</p>
+      </div>
+    ))}
+  </section>
+
+  <section class="cat-grid flavored" data-tint-scope aria-label="Todas las bebidas">
+    <div class="container section-sm">
+      <DrinkGrid drinks={drinks} headingLevel="h2" />
+    </div>
+  </section>
+
+  <section class="container section-sm">
+    <div class="cat-delivery">
+      <div>
+        <p class="eyebrow">Entregas</p>
+        <h2 class="h3">Las entregamos frías en {site.deliveryArea}.</h2>
+        <p class="body">Por ahora coordinamos cada pedido por WhatsApp. Muy pronto podrás pagar en línea desde aquí.</p>
+      </div>
+      <div class="cat-delivery-actions">
+        <a class="btn btn-solid" href={waLink()} target="_blank" rel="noopener">Pedir por WhatsApp</a>
+        <a class="link-arrow" href="/ayuda#bebidas">Preguntas frecuentes</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .cat-hero {
+    position: relative;
+    display: grid;
+    min-height: clamp(460px, 62vh, 680px);
+    background: var(--tint);
+    overflow: hidden;
+  }
+  .cat-hero-media { position: absolute; inset: 0 0 0 38%; }
+  .cat-hero-media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--tint) 0%, color-mix(in oklab, var(--tint) 40%, transparent) 22%, transparent 45%);
+  }
+  .cat-hero-copy {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 18px;
+    align-content: center;
+    padding-block: 64px;
+  }
+  .cat-hero-copy .h1 { max-width: 11ch; }
+  .cat-hero-copy .lead { max-width: 34ch; }
+
+  .cat-lines {
+    display: grid;
+    gap: 24px;
+    padding-block: clamp(48px, 7vw, 88px) 0;
+  }
+  .cat-line {
+    display: grid;
+    gap: 8px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+
+  .cat-grid {
+    background: var(--tint-soft);
+    transition: background-color .9s var(--ease);
+    margin-top: clamp(32px, 5vw, 56px);
+  }
+
+  .cat-delivery {
+    display: grid;
+    gap: 24px;
+    padding: clamp(28px, 4vw, 52px);
+    border-radius: var(--r-lg);
+    background: var(--cream);
+  }
+  .cat-delivery .h3 { margin: 10px 0; max-width: 24ch; }
+  .cat-delivery-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+
+  @media (max-width: 699px) {
+    .cat-hero { min-height: auto; }
+    .cat-hero-media { position: relative; inset: auto; aspect-ratio: 4 / 3; }
+    .cat-hero-media::after { display: none; }
+    .cat-hero-copy { padding-block: 32px 8px; }
+  }
+  @media (min-width: 760px) {
+    .cat-lines { grid-template-columns: 1fr 1fr; gap: 40px; }
+  }
+  @media (min-width: 900px) {
+    .cat-delivery { grid-template-columns: 1fr auto; align-items: end; }
+  }
+</style>

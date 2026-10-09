@@ -1,0 +1,67 @@
+---
+// "Cómo lo recibes". Mientras el pago en línea no esté activo (site.checkoutEnabled),
+// se explica el canal actual sin prometer una entrega automática que aún no existe.
+import { site, waLink } from '../data/site';
+
+const steps = [
+  { n: '01', title: 'Eliges tu e-book', body: 'Revisas qué incluye, el índice y algunas páginas de muestra.' },
+  { n: '02', title: 'Pagas con Mercado Pago', body: 'Con tarjeta, PSE o Efecty, en el entorno seguro de Mercado Pago.' },
+  { n: '03', title: 'Te llega al correo', body: 'Cuando el pago se confirma, recibes un enlace para descargar el PDF.' },
+];
+---
+{site.checkoutEnabled ? (
+  <div class="howto" id="como-lo-recibes">
+    <p class="eyebrow">Cómo lo recibes</p>
+    <ol class="howto-steps">
+      {steps.map((s) => (
+        <li>
+          <span class="mono howto-n">{s.n}</span>
+          <p class="howto-title">{s.title}</p>
+          <p class="small">{s.body}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+) : (
+  <div class="howto howto-soon" id="como-lo-recibes">
+    <div>
+      <p class="eyebrow">Cómo comprar</p>
+      <p class="howto-title">Por ahora, los e-books se piden por WhatsApp.</p>
+      <p class="small">Muy pronto podrás pagarlos aquí con Mercado Pago y recibirlos en tu correo.</p>
+    </div>
+    <a class="btn" href={waLink('Hola Blend, quiero saber más sobre los e-books.')} target="_blank" rel="noopener">Escríbenos</a>
+  </div>
+)}
+
+<style>
+  .howto {
+    margin-top: clamp(40px, 6vw, 72px);
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+  .howto-steps {
+    display: grid;
+    gap: 24px;
+    margin-top: 18px;
+  }
+  .howto-steps li { display: grid; gap: 6px; }
+  .howto-n { font-size: 13px; color: var(--sage-ink); }
+  .howto-title {
+    font-family: var(--serif);
+    font-size: clamp(22px, 2vw, 28px);
+    font-weight: 330;
+    line-height: 1.15;
+    margin-top: 6px;
+  }
+  .howto-soon {
+    display: grid;
+    gap: 20px;
+    align-items: center;
+  }
+  .howto-soon .btn { justify-self: start; }
+
+  @media (min-width: 800px) {
+    .howto-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+    .howto-soon { grid-template-columns: 1fr auto; }
+  }
+</style>

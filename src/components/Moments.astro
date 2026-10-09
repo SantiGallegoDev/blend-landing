@@ -1,0 +1,118 @@
+---
+// Momentos de uso con fotos reales. Puente natural entre las bebidas y el resto del día.
+import Photo from './Photo.astro';
+import entreno from '../assets/bebidas/detox/despues-de-entrenar.png';
+import trabajo from '../assets/bebidas/latte-ice/mientras-trabajas.png';
+import terraza from '../assets/bebidas/pink-cloud/terraza-al-sol.png';
+
+const moments = [
+  {
+    eyebrow: 'Mañana',
+    title: 'Después de entrenar',
+    drink: { name: 'Detox', href: '/bebidas/detox', flavor: '#CAC05F' },
+    img: entreno,
+    alt: 'Un hombre descansa después de entrenar con una lata de Detox en la mano',
+    focus: '40% 40%',
+    variant: 'tall',
+  },
+  {
+    eyebrow: 'Mediodía',
+    title: 'Mientras trabajas',
+    drink: { name: 'Latte Ice', href: '/bebidas/latte-ice', flavor: '#CBA781' },
+    img: trabajo,
+    alt: 'Una persona trabaja en su portátil con una lata de Latte Ice sobre la mesa',
+    focus: '55% 50%',
+    variant: 'wide',
+  },
+  {
+    eyebrow: 'Tarde',
+    title: 'La tarde al sol',
+    drink: { name: 'Pink Cloud', href: '/bebidas/pink-cloud', flavor: '#DC4981' },
+    img: terraza,
+    alt: 'Una lata de Pink Cloud sobre una mesa de madera en una terraza con plantas',
+    focus: '60% 50%',
+    variant: 'wide',
+  },
+];
+---
+<section class="moments section" aria-labelledby="moments-title">
+  <div class="container">
+    <header class="moments-head">
+      <p class="eyebrow" data-reveal="fade-up">Momentos Blend</p>
+      <h2 id="moments-title" class="h2" data-reveal="fade-up">Un Blend para cada <em>momento</em>.</h2>
+    </header>
+    <ul class="moments-grid" data-reveal-children>
+      {moments.map((m) => (
+        <li class:list={['moment', `moment-${m.variant}`, 'flavored']} style={`--flavor:${m.drink.flavor}`}>
+          <a href={m.drink.href} class="moment-link">
+            <div class="moment-media">
+              <Photo src={m.img} alt={m.alt} focus={m.focus} sizes={m.variant === 'tall' ? '(min-width: 900px) 40vw, 100vw' : '(min-width: 900px) 56vw, 100vw'} />
+            </div>
+            <div class="moment-copy">
+              <span class="eyebrow moment-eyebrow">{m.eyebrow}</span>
+              <h3 class="moment-title">{m.title}</h3>
+              <span class="moment-with">Con <span class="link-arrow">{m.drink.name}</span></span>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .moments-head { margin-bottom: clamp(32px, 5vw, 56px); }
+  .moments-grid { display: grid; gap: 16px; }
+  .moment { position: relative; }
+  .moment-link {
+    position: relative;
+    display: block;
+    height: 100%;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .moment-media { aspect-ratio: 4 / 3; height: 100%; }
+  .moment-tall .moment-media { aspect-ratio: 4 / 5; }
+  .moment-media :global(img) { transition: transform 1.4s var(--ease); }
+  .moment-link:hover .moment-media :global(img) { transform: scale(1.04); }
+  .moment-link::after {
+    content: '';
+    position: absolute;
+    inset: 45% 0 0;
+    background: linear-gradient(transparent, rgba(30, 24, 20, .62));
+    pointer-events: none;
+  }
+  .moment-copy {
+    position: absolute;
+    z-index: 2;
+    left: clamp(18px, 2.4vw, 32px);
+    right: clamp(18px, 2.4vw, 32px);
+    bottom: clamp(18px, 2.4vw, 30px);
+    display: grid;
+    gap: 6px;
+    justify-items: start;
+    color: var(--cream);
+  }
+  .moment-eyebrow { color: rgba(246, 239, 227, .86); }
+  .moment-title {
+    font-family: var(--serif);
+    font-weight: 320;
+    font-size: clamp(28px, 3vw, 44px);
+    line-height: 1;
+  }
+  .moment-with { display: inline-flex; align-items: baseline; gap: 8px; font-size: 15px; }
+  .moment-link:focus-visible { outline-offset: 4px; }
+
+  @media (min-width: 900px) {
+    .moments-grid {
+      grid-template-columns: 5fr 7fr;
+      grid-template-rows: auto auto;
+      gap: 20px;
+    }
+    .moment-tall { grid-row: span 2; }
+    .moment-tall .moment-media { aspect-ratio: auto; min-height: 100%; }
+    .moment-tall .moment-link { min-height: 100%; }
+    .moment-wide .moment-media { aspect-ratio: 16 / 9; }
+  }
+</style>

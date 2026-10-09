@@ -1,0 +1,166 @@
+---
+// Libro en CSS 3D (cara, lomo, cantos y contratapa). Sin WebGL.
+// Si no hay portada real, dibuja una portada tipográfica con la identidad de marca.
+import type { ImageMetadata } from 'astro';
+import logo from '../assets/marca/logo-blend.webp';
+import Photo from './Photo.astro';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  cover?: { src: ImageMetadata; alt: string };
+  color?: string;
+  ink?: string;
+  size?: 'sm' | 'md' | 'lg';
+  mark?: string;
+  transitionName?: string;
+  float?: boolean;
+}
+
+const {
+  title,
+  subtitle,
+  cover,
+  color = '#C5D1B0',
+  ink = '#3F4B37',
+  size = 'md',
+  mark = 'Blend Digital',
+  transitionName,
+  float = false,
+} = Astro.props;
+---
+<div
+  class:list={['book', `book-${size}`, { 'book-float': float }]}
+  style={`--book:${color};--book-ink:${ink};${transitionName ? `view-transition-name:${transitionName}` : ''}`}
+>
+  <div class="book-body">
+    <div class="book-face">
+      {cover ? (
+        <Photo src={cover.src} alt={cover.alt} sizes="(min-width: 900px) 340px, 50vw" maxWidth={800} />
+      ) : (
+        <div class="book-type" aria-hidden="true">
+          <span class="logo book-logo" style={`--logo:url(${logo.src})`}></span>
+          <span class="book-title">{title}</span>
+          {subtitle && <span class="book-sub">{subtitle}</span>}
+          <span class="book-mark">{mark}</span>
+        </div>
+      )}
+      <span class="book-sheen"></span>
+    </div>
+    <span class="book-pages"></span>
+    <span class="book-spine"></span>
+    <span class="book-back"></span>
+  </div>
+  <span class="book-shadow"></span>
+</div>
+
+<style>
+  .book {
+    --t: 18px; /* grosor */
+    position: relative;
+    width: var(--w);
+    aspect-ratio: 2 / 3;
+    perspective: 1600px;
+    container-type: inline-size;
+  }
+  .book-sm { --w: 150px; --t: 12px; }
+  .book-md { --w: clamp(170px, 18vw, 220px); --t: 16px; }
+  .book-lg { --w: clamp(220px, 30vw, 360px); --t: 22px; }
+
+  .book-float { animation: float-soft 9s ease-in-out infinite; --rot: -1deg; }
+
+  .book-body {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transform:
+      rotateY(calc(-30deg + var(--mx, 0) * 18deg))
+      rotateX(calc(5deg - var(--my, 0) * 10deg));
+    transition: transform .9s var(--ease);
+  }
+  .book-face,
+  .book-back {
+    position: absolute;
+    inset: 0;
+    border-radius: 2px 7px 7px 2px;
+    overflow: hidden;
+    background: var(--book);
+  }
+  .book-face {
+    transform: translateZ(calc(var(--t) / 2));
+    box-shadow: inset 5px 0 0 rgba(0, 0, 0, .1), inset 7px 0 0 rgba(255, 255, 255, .18);
+  }
+  .book-back {
+    transform: translateZ(calc(var(--t) / -2));
+    background: color-mix(in oklab, var(--book) 80%, #000);
+  }
+  .book-pages {
+    position: absolute;
+    top: 1.2%;
+    bottom: 1.2%;
+    left: calc(100% - var(--t) / 2 - 2px);
+    width: var(--t);
+    transform: rotateY(90deg);
+    background: repeating-linear-gradient(90deg, #FBF8F1 0 1px, #E9E2D4 1px 2px);
+  }
+  .book-spine {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--t) / -2);
+    width: var(--t);
+    transform: rotateY(-90deg);
+    background: color-mix(in oklab, var(--book) 75%, #000);
+  }
+  .book-sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .22) 48%, transparent 62%);
+    mix-blend-mode: soft-light;
+    pointer-events: none;
+  }
+  .book-shadow {
+    position: absolute;
+    left: 4%;
+    right: -10%;
+    bottom: -7%;
+    height: 12%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(42, 37, 32, .34), transparent);
+    filter: blur(4px);
+  }
+
+  .book-type {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 9cqi 9cqi 9cqi 12cqi;
+    color: var(--book-ink);
+  }
+  .book-logo { width: 34cqi; color: var(--book-ink); }
+  .book-title {
+    margin-top: auto;
+    font-family: var(--serif);
+    font-weight: 330;
+    font-size: 12.5cqi;
+    line-height: 1.02;
+    letter-spacing: -.02em;
+  }
+  .book-sub {
+    margin-top: 4cqi;
+    font-size: 5.6cqi;
+    line-height: 1.35;
+    opacity: .85;
+  }
+  .book-mark {
+    margin-top: 7cqi;
+    padding-top: 4cqi;
+    border-top: 1px solid currentColor;
+    font-family: var(--mono);
+    font-size: 4.4cqi;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+</style>

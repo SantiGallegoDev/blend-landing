@@ -1,0 +1,164 @@
+---
+import Photo from './Photo.astro';
+import EbookCover3D from './EbookCover3D.astro';
+import pinkCloud from '../assets/bebidas/pink-cloud/travertino-palmas.png';
+import latteCutout from '../assets/bebidas/latte-ice/recorte.png';
+import { getEbooks } from '../data/catalog';
+
+// Con portadas reales publicadas se muestran hasta dos; si no, un emblema de la línea.
+const covers = (await getEbooks()).filter((e) => !e.data.draft && e.data.cover).slice(0, 2);
+---
+<section class="hero">
+  <div class="container">
+    <header class="hero-head">
+      <p class="eyebrow" data-rise>Blend · Armenia, Quindío</p>
+      <h1 class="display hero-title" data-rise="2">
+        Bienestar que se <em>toma</em> y&nbsp;se&nbsp;<em>lee</em>.
+      </h1>
+      <p class="lead hero-lead" data-rise="3">
+        Bebidas frías con fruta, raíces y café de especialidad, sin azúcar añadida.
+        Y guías digitales para inspirarte en la cocina y en tu rutina.
+      </p>
+    </header>
+
+    <div class="doors">
+      <a href="/bebidas" class="door door-drinks flavored" data-tilt data-rise="4">
+        <div class="door-copy">
+          <span class="eyebrow">Blend Drinks</span>
+          <h2 class="door-title">Cinco latas frías, cada una con su carácter.</h2>
+          <span class="link-arrow">Explora las bebidas</span>
+        </div>
+        <div class="door-art" aria-hidden="true">
+          <div class="door-arch arch">
+            <Photo src={pinkCloud} alt="" eager sizes="(min-width: 860px) 24vw, 50vw" focus="50% 58%" maxWidth={900} />
+          </div>
+          <div class="door-float">
+            <Photo src={latteCutout} alt="" fit="contain" eager sizes="(min-width: 860px) 12vw, 28vw" maxWidth={560} />
+          </div>
+        </div>
+      </a>
+
+      <a href="/digital" class="door door-digital" data-tilt data-rise="5">
+        <div class="door-copy">
+          <span class="eyebrow">Blend Digital</span>
+          <h2 class="door-title">E-books para inspirarte en la cocina y en tu rutina.</h2>
+          <span class="link-arrow">Descubre los e-books</span>
+        </div>
+        <div class="door-art door-art-books" aria-hidden="true">
+          {covers.length > 0 ? (
+            covers.map((e, i) => (
+              <div class="door-book" style={`--i:${i}`}>
+                <EbookCover3D title={e.data.title} cover={e.data.cover} color={e.data.coverColor} ink={e.data.coverInk} size="lg" />
+              </div>
+            ))
+          ) : (
+            <div class="door-book">
+              <EbookCover3D title="Guías para tu día a día" mark="Blend Digital" size="lg" float />
+            </div>
+          )}
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero { padding-block: clamp(36px, 6vw, 80px) clamp(24px, 4vw, 48px); }
+  .hero-head {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: clamp(40px, 6vw, 76px);
+  }
+  .hero-title { max-width: 11.5ch; }
+  .hero-lead { max-width: 46ch; }
+
+  .doors { display: grid; gap: 16px; }
+
+  .door {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 24px;
+    min-height: clamp(480px, 46vw, 620px);
+    padding: clamp(24px, 3vw, 40px);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    transition: transform .8s var(--ease), box-shadow .8s var(--ease);
+  }
+  .door:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 40px 80px -50px rgba(42, 37, 32, .5);
+  }
+  .door:focus-visible { outline-offset: 4px; border-radius: var(--r-lg); }
+
+  .door-drinks {
+    --flavor: var(--pink);
+    background: radial-gradient(90% 70% at 70% 85%, var(--tint-strong), var(--tint) 70%);
+  }
+  .door-digital {
+    background:
+      radial-gradient(70% 60% at 55% 78%, color-mix(in oklab, var(--sage) 55%, var(--paper)), var(--paper) 72%);
+  }
+
+  .door-copy {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    max-width: 30ch;
+  }
+  .door-title {
+    font-family: var(--serif);
+    font-weight: 320;
+    font-size: clamp(26px, 2.6vw, 38px);
+    line-height: 1.06;
+    letter-spacing: -.02em;
+    margin-bottom: 6px;
+  }
+
+  .door-art { position: relative; min-height: 270px; }
+
+  .door-arch {
+    --arch-v: 37.5%;
+    position: absolute;
+    right: 4%;
+    bottom: 0;
+    width: min(54%, 320px);
+    aspect-ratio: 3 / 4;
+    translate: calc(var(--mx, 0) * -10px) calc(var(--my, 0) * -8px);
+    transition: translate .9s var(--ease);
+  }
+  .door-float {
+    position: absolute;
+    left: 22%;
+    bottom: -3%;
+    width: min(30%, 180px);
+    aspect-ratio: 2 / 3;
+    filter: drop-shadow(0 28px 26px rgba(42, 37, 32, .32));
+    translate: calc(var(--mx, 0) * 24px) calc(var(--my, 0) * 16px);
+    transition: translate .9s var(--ease);
+  }
+  .door-float :global(img) {
+    --rot: -5deg;
+    animation: float-soft 8s ease-in-out infinite;
+  }
+
+  .door-art-books {
+    display: grid;
+    place-items: center;
+    padding-bottom: 18px;
+  }
+  .door-art-books :global(.book) { --w: clamp(150px, 20vw, 250px); }
+  .door-book {
+    grid-area: 1 / 1;
+    translate: calc(var(--i, 0) * 46%) calc(var(--i, 0) * 4%);
+  }
+
+  @media (min-width: 860px) {
+    .doors { grid-template-columns: 1fr 1fr; gap: 20px; }
+  }
+</style>
