@@ -3,35 +3,59 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Photo from '../../components/Photo.astro';
 import DrinkGrid from '../../components/DrinkGrid.astro';
 import { getDrinks } from '../../data/catalog';
-import { site, drinkLines, waLink } from '../../data/site';
+import { site, drinkLines, waLink, formatCOP } from '../../data/site';
 import sunset from '../../assets/bebidas/sunset/terrazo-durazno.png';
 
 const drinks = await getDrinks();
+const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
 ---
 <BaseLayout
   title="Blend Drinks · Bebidas frías en lata"
-  description="Cinco bebidas en lata de 330 ml: Detox, Pink Cloud y Sunset (línea Flow), Latte Ice y Americano Ice (Cold Coffee). Sin azúcar añadida. Entregas en Armenia y el Eje Cafetero."
+  description={`Cinco bebidas en lata de 330 ml desde ${formatCOP(fromPrice)}: Detox, Pink Cloud y Sunset (línea Flow), Latte Ice y Americano Ice (Cold Coffee). Sin azúcar añadida. Entregas en ${site.deliveryArea}.`}
 >
   <section class="cat-hero flavored" style="--flavor: var(--sunset)">
     <div class="cat-hero-media">
       <Photo src={sunset} alt="Lata de Sunset sobre terrazo frente a una pared color durazno" eager sizes="(min-width: 700px) 62vw, 100vw" focus="72% 50%" />
     </div>
     <div class="container cat-hero-copy">
-      <p class="eyebrow" data-rise>Blend Drinks</p>
+      <p class="eyebrow" data-rise>Blend Drinks · Wellness Collection</p>
       <h1 class="h1" data-rise="2">Cinco latas frías, cada una con su <em>carácter</em>.</h1>
-      <p class="lead" data-rise="3">Fruta, raíces y café de especialidad, sin azúcar añadida. Elige por sabor o por momento del día.</p>
+      <p class="lead" data-rise="3">
+        Fruta, raíces y café de especialidad, sin azúcar añadida.
+        Desde {formatCOP(fromPrice)} la lata, entregadas frías en {site.deliveryArea}.
+      </p>
     </div>
   </section>
 
-  <section class="cat-lines container" aria-label="Líneas">
-    {Object.entries(drinkLines).map(([key, line]) => (
-      <div class="cat-line" data-reveal="fade-up">
-        <p class="eyebrow">Línea</p>
-        <h2 class="h3">{line.name}</h2>
-        <p class="body">{line.short}</p>
-        <p class="small">{drinks.filter((d) => d.data.line === key).map((d) => d.data.name).join(' · ')}</p>
-      </div>
-    ))}
+  <section class="cat-lines container" aria-label="Líneas y precios">
+    {Object.entries(drinkLines).map(([key, line]) => {
+      const inLine = drinks.filter((d) => d.data.line === key);
+      const note = line.formats.find((f) => f.note)?.note;
+      return (
+        <div class="cat-line" data-reveal="fade-up">
+          <p class="eyebrow">Línea</p>
+          <h2 class="h3">{line.name}</h2>
+          <p class="body">{line.short}</p>
+          <p class="small">{inLine.map((d) => d.data.name).join(' · ')}</p>
+          <dl class="cat-prices">
+            {line.formats.length > 0
+              ? line.formats.map((f) => (
+                  <div>
+                    <dt>{f.label}{f.detail && <span>{f.detail}</span>}</dt>
+                    <dd class="price">{formatCOP(f.price)}</dd>
+                  </div>
+                ))
+              : inLine.map((d) => (
+                  <div>
+                    <dt>{d.data.name} <span>{d.data.volume}</span></dt>
+                    <dd class="price">{d.data.price ? formatCOP(d.data.price) : 'Consultar'}</dd>
+                  </div>
+                ))}
+          </dl>
+          {note && <p class="small cat-note">{note}</p>}
+        </div>
+      );
+    })}
   </section>
 
   <section class="cat-grid flavored" data-tint-scope aria-label="Todas las bebidas">
@@ -45,7 +69,7 @@ const drinks = await getDrinks();
       <div>
         <p class="eyebrow">Entregas</p>
         <h2 class="h3">Las entregamos frías en {site.deliveryArea}.</h2>
-        <p class="body">Por ahora coordinamos cada pedido por WhatsApp. Muy pronto podrás pagar en línea desde aquí.</p>
+        <p class="body">{site.deliveryNotes.join(' ')} Por ahora coordinamos cada pedido por WhatsApp; muy pronto podrás pagar en línea desde aquí.</p>
       </div>
       <div class="cat-delivery-actions">
         <a class="btn btn-solid" href={waLink()} target="_blank" rel="noopener">Pedir por WhatsApp</a>
@@ -89,9 +113,23 @@ const drinks = await getDrinks();
   .cat-line {
     display: grid;
     gap: 8px;
+    align-content: start;
     padding-top: 20px;
     border-top: 1px solid var(--line);
   }
+  .cat-prices { display: grid; margin: 12px 0 0; }
+  .cat-prices div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .cat-prices dt { font-weight: 500; }
+  .cat-prices dt span { font-weight: 400; color: var(--ink-2); margin-left: 6px; }
+  .cat-prices dd { margin: 0; }
+  .cat-note { margin-top: 4px; }
 
   .cat-grid {
     background: var(--tint-soft);

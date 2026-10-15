@@ -1,9 +1,10 @@
 ---
 import DrinkGrid from './DrinkGrid.astro';
 import { getDrinks } from '../data/catalog';
-import { drinkLines } from '../data/site';
+import { drinkLines, formatCOP } from '../data/site';
 
 const drinks = await getDrinks();
+const priceLine = drinkLines.flow.formats.map((f) => `${f.label} ${f.detail} ${formatCOP(f.price)}`).join(' · ');
 ---
 <section class="showcase flavored" data-tint-scope aria-labelledby="showcase-title">
   <div class="container section showcase-inner">
@@ -16,6 +17,7 @@ const drinks = await getDrinks();
         {Object.values(drinkLines).map((line) => (
           <p><strong>{line.name}.</strong> {line.short}</p>
         ))}
+        <p class="small showcase-prices">{priceLine}</p>
         <a href="/bebidas" class="link-arrow">Ver todas las bebidas</a>
       </div>
     </header>
@@ -56,6 +58,7 @@ const drinks = await getDrinks();
     color: var(--ink-2);
   }
   .showcase-lines strong { color: var(--ink); font-weight: 500; }
+  .showcase-prices { font-family: var(--mono); font-size: 12px; letter-spacing: .02em; margin-top: 4px; }
   .showcase-lines .link-arrow { margin-top: 10px; color: var(--ink); }
 
   @media (min-width: 900px) {

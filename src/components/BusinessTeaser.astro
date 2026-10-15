@@ -1,31 +1,47 @@
 ---
+// Dos salidas del ecosistema: lugares que venden Blend y eventos con bebida propia.
+import { events, site, waLink } from '../data/site';
 ---
-<section class="biz section-sm" aria-labelledby="biz-title">
-  <div class="container">
-    <div class="biz-card" data-reveal="fade-up">
+<section class="biz section-sm" aria-label="Negocios y eventos">
+  <div class="container biz-grid" data-reveal-children>
+    <div class="biz-card">
       <div>
         <p class="eyebrow">Negocios</p>
-        <h2 id="biz-title" class="h3 biz-title">¿Quieres Blend en tu café, estudio o tienda?</h2>
-        <p class="body">Trabajamos con lugares del Eje Cafetero que se sienten como Blend. Cuéntanos del tuyo.</p>
+        <h2 class="h3 biz-title">¿Quieres Blend en tu café, estudio o tienda?</h2>
+        <p class="body">Trabajamos con lugares de {site.deliveryArea} que se sienten como Blend. Cuéntanos del tuyo.</p>
       </div>
       <a href="/negocios" class="btn">Hablemos</a>
+    </div>
+    <div class="biz-card biz-card-events flavored">
+      <div>
+        <p class="eyebrow">Eventos</p>
+        <h2 class="h3 biz-title">{events.title} <em>{events.motto}</em></h2>
+        <p class="body">{events.lead}</p>
+      </div>
+      <a href={waLink(events.waText)} class="btn" target="_blank" rel="noopener">Cuéntanos tu idea</a>
     </div>
   </div>
 </section>
 
 <style>
+  .biz-grid { display: grid; gap: 16px; }
   .biz-card {
     display: grid;
     gap: 24px;
-    align-items: center;
-    padding: clamp(28px, 4vw, 52px);
+    align-content: space-between;
+    padding: clamp(28px, 4vw, 48px);
     border-radius: var(--r-lg);
     background: var(--cream);
   }
+  .biz-card-events {
+    --flavor: var(--sunset);
+    background: radial-gradient(80% 70% at 85% 90%, var(--tint), var(--tint-soft) 70%);
+  }
   .biz-title { margin: 10px 0 10px; max-width: 22ch; }
+  .biz-title em { color: var(--deep, inherit); }
   .biz-card .btn { justify-self: start; }
 
   @media (min-width: 800px) {
-    .biz-card { grid-template-columns: 1fr auto; }
+    .biz-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
   }
 </style>

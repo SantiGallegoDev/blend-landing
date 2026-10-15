@@ -2,11 +2,13 @@
 name: Americano Ice
 line: cold-coffee
 order: 5
-headline: Café frío, sin rodeos.
+headline: Intenso y refrescante.
+description: Café expreso de especialidad y agua purificada. El café que amas, ahora frío.
 ingredients: [Café expreso, Agua purificada]
 volume: 330 ml
 badges: [Café de especialidad, Tostión media, Sin azúcar añadida, Mantener refrigerado]
 flavor: "#704B3F"
+price: 10000
 # ⚠︎ El recorte dice "COLD COFFE" y falta una foto de contexto.
 provisionalImages: true
 card:
@@ -21,5 +23,5 @@ cutout:
   src: ../../assets/bebidas/americano-ice/recorte.png
   alt: Lata de Americano Ice
   fit: contain
-seoDescription: Americano Ice de Blend Cold Coffee. Café expreso de especialidad, tostión media, y agua purificada. Lata de 330 ml sin azúcar añadida.
+seoDescription: Americano Ice de Blend Cold Coffee. Café expreso de especialidad, tostión media, y agua purificada. Lata de 330 ml sin azúcar añadida. $10.000.
 ---

@@ -1,6 +1,17 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { site, waLink, instagramUrl } from '../data/site';
+import { site, waLink, instagramUrl, drinkLines, formatCOP, events } from '../data/site';
+import { getDrinks } from '../data/catalog';
+
+const drinks = await getDrinks();
+const flow = drinkLines.flow.formats;
+const lata = flow.find((f) => f.id === 'lata');
+const six = flow.find((f) => f.id === 'six');
+const litro = flow.find((f) => f.id === 'litro');
+const coffee = drinks
+  .filter((d) => d.data.line === 'cold-coffee' && d.data.price)
+  .map((d) => `${d.data.name} ${formatCOP(d.data.price!)}`)
+  .join(' y ');
 
 // Respuestas que reflejan cómo funciona Blend hoy (pedidos por WhatsApp).
 // Al activar el pago en línea (Fase 4) se actualizan junto con site.checkoutEnabled.
@@ -10,8 +21,16 @@ const groups = [
     title: 'Bebidas',
     items: [
       {
+        q: '¿Cuánto cuestan?',
+        a: `En la línea Flow (Detox, Pink Cloud y Sunset) la lata de 330 ml cuesta ${formatCOP(lata!.price)}, el six pack de 6 latas ${formatCOP(six!.price)} y la presentación de 1 litro ${formatCOP(litro!.price)}. En Cold Coffee: ${coffee}.`,
+      },
+      {
+        q: '¿Puedo armar el six pack con varios sabores?',
+        a: 'Sí. El six pack Flow lo armas con los sabores que quieras; nos dices la combinación por WhatsApp.',
+      },
+      {
         q: '¿Dónde entregan?',
-        a: `Por ahora entregamos en ${site.deliveryArea}. Si estás en otra ciudad, escríbenos y te contamos.`,
+        a: `Entregamos en ${site.deliveryArea}. ${site.deliveryNotes.join(' ')} Si estás en otra ciudad, escríbenos y te contamos.`,
       },
       {
         q: '¿Cómo hago un pedido?',
@@ -23,7 +42,17 @@ const groups = [
       },
       {
         q: '¿Qué llevan?',
-        a: 'Cada ficha muestra los ingredientes tal como aparecen en la etiqueta. Todas son latas de 330 ml sin azúcar añadida.',
+        a: 'Cada ficha muestra los ingredientes tal como aparecen en la etiqueta. Todas son latas de 330 ml sin azúcar añadida; la línea Flow además es keto friendly y lleva ingredientes 100 % naturales.',
+      },
+    ],
+  },
+  {
+    id: 'eventos',
+    title: 'Eventos',
+    items: [
+      {
+        q: '¿Hacen bebidas personalizadas para eventos?',
+        a: `${events.lead} ${events.motto} Cuéntanos tu idea por WhatsApp y te ayudamos a hacerla realidad. ${site.deliveryNotes[1]}`,
       },
     ],
   },
@@ -60,7 +89,7 @@ const groups = [
 ---
 <BaseLayout
   title="Ayuda · Blend"
-  description="Preguntas frecuentes sobre entregas, e-books y pagos en Blend."
+  description="Preguntas frecuentes sobre precios, entregas, eventos, e-books y pagos en Blend."
 >
   <section class="container section help">
     <header class="help-head">
@@ -68,7 +97,7 @@ const groups = [
       <h1 class="h1">¿En qué te <em>ayudamos</em>?</h1>
       <p class="lead">Si no encuentras tu respuesta, escríbenos y te contestamos.</p>
       <div class="help-contact">
-        <a class="btn btn-solid" href={waLink('Hola Blend, tengo una pregunta.')} target="_blank" rel="noopener">WhatsApp</a>
+        <a class="btn btn-solid" href={waLink('Hola Blend, tengo una pregunta.')} target="_blank" rel="noopener">WhatsApp {site.whatsappDisplay}</a>
         <a class="btn" href={`mailto:${site.email}`}>{site.email}</a>
         <a class="link-arrow" href={instagramUrl} target="_blank" rel="noopener">@{site.instagram}</a>
       </div>

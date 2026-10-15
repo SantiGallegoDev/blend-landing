@@ -17,14 +17,17 @@ const bebidas = defineCollection({
       name: z.string(),
       line: z.enum(['flow', 'cold-coffee']),
       order: z.number(),
+      // Frase corta del catálogo ("Acompaña tu hidratación.").
       headline: z.string(),
+      // Descripción del catálogo ("Ligera y refrescante, a base de pitahaya, limón y sal.").
+      description: z.string(),
       // Solo datos de la etiqueta.
       ingredients: z.array(z.string()).min(1),
       extras: z.array(z.string()).default([]),
       volume: z.string(),
       badges: z.array(z.string()).default([]),
       flavor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-      // Precio en pesos enteros. ⚠︎ Pendiente de confirmar.
+      // Precio de la lata de 330 ml en pesos (catálogo agosto 2026).
       price: z.number().int().positive().optional(),
       available: z.boolean().default(true),
       // Imágenes con errores de etiqueta que deben regenerarse antes de publicar.

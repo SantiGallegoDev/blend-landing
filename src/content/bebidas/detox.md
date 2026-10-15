@@ -2,12 +2,14 @@
 name: Detox
 line: flow
 order: 1
-headline: Lo verde, pero rico.
+headline: Siéntete ligero.
+description: Fresca y equilibrada, a base de piña, apio, hierbabuena y limón.
 ingredients: [Piña, Hierbabuena, Apio, Pepino, Limón]
 extras: [Vitamina C]
 volume: 330 ml
 badges: [Sin azúcar añadida, Keto friendly, Mantener refrigerada, Ingredientes 100 % naturales]
 flavor: "#CAC05F"
+price: 10000
 card:
   src: ../../assets/bebidas/detox/travertino-sol.png
   alt: Lata de Detox sobre travertino al sol, junto a hierbabuena, pepino y lima

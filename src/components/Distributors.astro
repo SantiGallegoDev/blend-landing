@@ -14,9 +14,9 @@ const fields = [
       <p class="eyebrow" data-rise>Negocios · cafés · estudios</p>
       <h1 id="dist-title" class="h1" data-rise="2">¿Llevamos Blend a <em>tu lugar</em>?</h1>
       <p class="body" data-rise="3">
-        Empezamos por el Eje Cafetero (Armenia, Pereira y Manizales) y vamos despacio
-        hacia Bogotá y Medellín. Trabajamos con cafés de barrio, estudios de yoga,
-        gimnasios boutique y tiendas pequeñas. Si tu lugar se siente como Blend, queremos conocerlo.
+        Hoy entregamos en {site.deliveryArea} y trabajamos con cafés de barrio, estudios de yoga,
+        gimnasios boutique y tiendas pequeñas del Eje Cafetero. Si tu lugar se siente como Blend,
+        queremos conocerlo. ¿Tienes un evento? <a href="#eventos" class="dist-link">Te enlatamos una bebida propia</a>.
       </p>
       <ul class="dist-tags" data-rise="4">
         {placeTags.map((t) => <li class="chip">{t}</li>)}
@@ -59,6 +59,7 @@ const fields = [
   .dist-grid { display: grid; gap: 48px; align-items: start; }
   .dist-copy { display: grid; gap: 20px; justify-items: start; }
   .dist-copy .h1 { max-width: 12ch; }
+  .dist-link { text-decoration: underline; text-underline-offset: 3px; color: var(--ink); }
   .dist-tags { display: flex; flex-wrap: wrap; gap: 8px; }
   .stockists { width: 100%; margin-top: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
   .stockists ul { display: grid; margin-top: 12px; }

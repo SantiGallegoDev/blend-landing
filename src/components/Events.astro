@@ -1,0 +1,83 @@
+---
+// Eventos y bebidas personalizadas (catálogo, p. 9).
+import { events, site, waLink } from '../data/site';
+---
+<section class="events section-sm" id="eventos" aria-labelledby="events-title">
+  <div class="container">
+    <div class="events-card flavored" data-reveal="fade-up">
+      <div class="events-copy">
+        <p class="eyebrow">Eventos y personalizados</p>
+        <h2 id="events-title" class="h2">{events.title}</h2>
+        <p class="lead">{events.lead}</p>
+        <p class="events-motto"><em>{events.motto}</em></p>
+        <p class="body">
+          Cuéntanos tu idea y te ayudamos a hacerla realidad. {site.deliveryNotes[1]}
+        </p>
+        <div class="events-actions">
+          <a class="btn btn-solid" href={waLink(events.waText)} target="_blank" rel="noopener">Cuéntanos tu idea</a>
+          <p class="small">{events.note}</p>
+        </div>
+      </div>
+      <div class="events-art" aria-hidden="true">
+        <span class="events-can events-can-1"></span>
+        <span class="events-can events-can-2"></span>
+        <span class="events-can events-can-3"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .events-card {
+    --flavor: var(--sunset);
+    position: relative;
+    display: grid;
+    gap: 32px;
+    padding: clamp(28px, 4vw, 56px);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background:
+      radial-gradient(60% 80% at 90% 50%, var(--tint-strong), transparent 70%),
+      var(--tint-soft);
+  }
+  .events-copy { display: grid; gap: 16px; justify-items: start; }
+  .events-copy .h2 { max-width: 12ch; }
+  .events-motto {
+    font-family: var(--serif);
+    font-size: clamp(24px, 2.6vw, 36px);
+    font-weight: 300;
+    line-height: 1.15;
+    color: var(--deep);
+  }
+  .events-actions { display: grid; gap: 12px; justify-items: start; margin-top: 6px; }
+
+  /* Tres latas en blanco: la bebida que aún no existe. */
+  .events-art {
+    position: relative;
+    min-height: 220px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 6%;
+  }
+  .events-can {
+    display: block;
+    width: 22%;
+    max-width: 120px;
+    aspect-ratio: 1 / 2.1;
+    border-radius: 14px 14px 12px 12px / 10px 10px 8px 8px;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, .55), transparent 30%, rgba(42, 37, 32, .08) 85%),
+      var(--cream);
+    box-shadow: 0 30px 40px -26px rgba(42, 37, 32, .5);
+    border: 1px dashed color-mix(in oklab, var(--deep) 45%, transparent);
+  }
+  .events-can-1 { background-color: color-mix(in oklab, var(--pink) 30%, var(--cream)); translate: 0 -6%; }
+  .events-can-2 { background-color: color-mix(in oklab, var(--detox) 32%, var(--cream)); }
+  .events-can-3 { background-color: color-mix(in oklab, var(--sunset) 34%, var(--cream)); translate: 0 -3%; }
+
+  @media (min-width: 900px) {
+    .events-card { grid-template-columns: 1.2fr 1fr; align-items: center; gap: 48px; }
+    .events-art { min-height: 320px; }
+  }
+</style>

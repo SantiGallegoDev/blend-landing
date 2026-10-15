@@ -2,12 +2,14 @@
 name: Pink Cloud
 line: flow
 order: 2
-headline: Un cielo rosado, en lata.
+headline: Acompaña tu hidratación.
+description: Ligera y refrescante, a base de pitahaya, limón y sal.
 ingredients: [Pitahaya, Sal, Limón]
 extras: [Vitamina C]
 volume: 330 ml
 badges: [Sin azúcar añadida, Keto friendly, Mantener refrigerada, Ingredientes 100 % naturales]
 flavor: "#DC4981"
+price: 10000
 card:
   src: ../../assets/bebidas/pink-cloud/travertino-palmas.png
   alt: Lata de Pink Cloud sobre travertino, con sombras de palma en la pared

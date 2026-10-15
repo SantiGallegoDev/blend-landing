@@ -2,12 +2,14 @@
 name: Sunset
 line: flow
 order: 3
-headline: La hora dorada, en lata.
+headline: Acompaña tu bienestar.
+description: Cítrica, aromática y especiada, con zanahoria, jengibre, cúrcuma y limón.
 ingredients: [Zanahoria, Jengibre, Cúrcuma, Limón]
 extras: [Vitamina C]
 volume: 330 ml
 badges: [Sin azúcar añadida, Keto friendly, Mantener refrigerada, Ingredientes 100 % naturales]
 flavor: "#EA8B15"
+price: 10000
 card:
   src: ../../assets/bebidas/sunset/terrazo-durazno.png
   alt: Lata de Sunset sobre terrazo frente a una pared color durazno

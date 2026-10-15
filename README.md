@@ -31,7 +31,7 @@ src/
     catalog.ts    getDrinks() y getEbooks()
   assets/
     bebidas/      fotos de producto (se optimizan a AVIF/WebP en el build)
-    marca/        logo y paisaje de Origen
+    marca/        logo y paisaje de Origen (logo-blend.svg es el logotipo vectorizado del catálogo, sin usar aún)
     fonts/        Newsreader recortada (ver scripts/build-fonts.py)
   components/     Hero, tarjetas, cuadrícula de bebidas, libro 3D, etc.
   pages/          /, /bebidas, /bebidas/[slug], /digital, /digital/[slug],
@@ -55,10 +55,12 @@ src/
 
 ## Antes de publicar
 
-- [ ] Número de WhatsApp, correo y dominio reales en `src/data/site.ts`, `astro.config.mjs` y `public/robots.txt`.
+- [x] Número de WhatsApp (311 366 7282, del catálogo) en `src/data/site.ts`.
+- [ ] Correo y dominio reales en `src/data/site.ts`, `astro.config.mjs` y `public/robots.txt`.
 - [ ] Regenerar las 5 fotos de café (las etiquetas dicen "COLD COFFE"). Están marcadas con `provisionalImages: true`.
-- [ ] Precios de las 5 latas (`price` en cada archivo de `src/content/bebidas/`).
-- [ ] Confirmar las afirmaciones "lotes pequeños" (Origen) y el sello "Keto friendly".
+- [x] Precios del catálogo (agosto 2026): lata Flow $10.000, six pack $42.000, 1 litro $25.000; Latte Ice $12.000, Americano Ice $10.000. Viven en `src/content/bebidas/*.md` (`price`) y en `drinkLines.flow.formats` de `src/data/site.ts`.
+- [ ] Decidir si vuelven Spoonables (postres) y Abrazo Dulce (arequipe), que aparecen en el catálogo pero no en la web.
+- [ ] Foto de Katherine y Simón para /nosotros: guardarla como `src/assets/marca/nosotros-katherine-y-simon.jpg` (la página la toma sola; mientras tanto muestra el hueco reservado).
 - [ ] Cargar los e-books reales y borrar los borradores.
 - [ ] Términos y política de privacidad redactados con asesoría legal (hoy son esqueletos sin indexar).
 

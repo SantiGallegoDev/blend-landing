@@ -2,11 +2,13 @@
 name: Latte Ice
 line: cold-coffee
 order: 4
-headline: Tu latte frío, listo cuando lo necesites.
+headline: Cremoso y equilibrado.
+description: El café que amas, ahora frío, con leche deslactosada y listo para acompañarte.
 ingredients: [Café expreso, Leche deslactosada]
 volume: 330 ml
 badges: [Café de especialidad, Tostión media, Sin azúcar añadida, Mantener refrigerado]
 flavor: "#CBA781"
+price: 12000
 # ⚠︎ Las fotos dicen "COLD COFFE": regenerar antes de publicar.
 provisionalImages: true
 card:
@@ -28,5 +30,5 @@ gallery:
   - src: ../../assets/bebidas/latte-ice/lino-piedra.png
     alt: Lata de Latte Ice con sombras de hojas sobre la pared
     focus: 66% 50%
-seoDescription: Latte Ice de Blend Cold Coffee. Café expreso de especialidad, tostión media, con leche deslactosada. Lata de 330 ml sin azúcar añadida.
+seoDescription: Latte Ice de Blend Cold Coffee. Café expreso de especialidad, tostión media, con leche deslactosada. Lata de 330 ml sin azúcar añadida. $12.000.
 ---

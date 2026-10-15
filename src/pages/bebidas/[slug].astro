@@ -5,7 +5,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Photo from '../../components/Photo.astro';
 import DrinkCard from '../../components/DrinkCard.astro';
 import { getDrinks } from '../../data/catalog';
-import { site, drinkLines, formatCOP, waLink } from '../../data/site';
+import { site, drinkLines, formatCOP, waLink, type DrinkFormat } from '../../data/site';
 
 export const getStaticPaths = (async () => {
   const drinks = await getDrinks();
@@ -16,8 +16,16 @@ const { drink, drinks } = Astro.props;
 const d = drink.data;
 const line = drinkLines[d.line];
 const related = drinks.filter((x) => x.id !== drink.id);
-const template = `Hola Blend, quiero pedir {qty} ${d.name} (${d.volume}).`;
-const message = (qty: number) => template.replace('{qty}', String(qty));
+
+// Presentaciones: las de la línea (Flow) o, si no hay, la lata con su precio.
+const formats: DrinkFormat[] =
+  line.formats.length > 0
+    ? [...line.formats]
+    : [{ id: 'lata', label: 'Lata', detail: d.volume, price: d.price ?? 0 }];
+const first = formats[0];
+const formatLabel = (f: DrinkFormat) => [f.label, f.detail].filter(Boolean).join(' ').toLowerCase();
+const message = (qty: number, f: DrinkFormat) => `Hola Blend, quiero pedir ${qty} × ${d.name}, ${formatLabel(f)}.`;
+const packNote = formats.find((f) => f.note)?.note;
 
 // "Piña, hierbabuena, apio, pepino y limón, con vitamina C. 330 ml."
 const lower = (x: string) => x.charAt(0).toLowerCase() + x.slice(1);
@@ -69,25 +77,58 @@ if (d.price) {
           </nav>
           <h1 class="h1 pdp-name">{d.name}</h1>
           <p class="pdp-headline"><em>{d.headline}</em></p>
-          <p class="body">{sentence}</p>
+          <p class="body">{d.description}</p>
+          <p class="small">{sentence}</p>
           <ul class="pdp-badges" aria-label="Sellos de la etiqueta">
             {d.badges.map((b) => <li class="chip"><span class="chip-dot"></span>{b}</li>)}
           </ul>
 
-          {d.price && <p class="pdp-price price">{formatCOP(d.price)}</p>}
+          <div class="pdp-actions" data-order data-name={d.name}>
+            {formats.length > 1 && (
+              <fieldset class="formats">
+                <legend class="eyebrow">Presentación</legend>
+                {formats.map((f, i) => (
+                  <label class="format">
+                    <input
+                      type="radio"
+                      name="formato"
+                      value={f.id}
+                      checked={i === 0}
+                      data-price={f.price}
+                      data-label={formatLabel(f)}
+                    />
+                    <span class="format-chip">
+                      <span class="format-name">{f.label} <small>{f.detail}</small></span>
+                      <span class="price">{formatCOP(f.price)}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+            {packNote && <p class="small">{packNote}</p>}
 
-          <div class="pdp-actions" data-order data-template={template}>
-            <div class="qty" role="group" aria-label="Cantidad">
-              <button type="button" data-step="-1" aria-label="Quitar una">−</button>
-              <output data-qty aria-live="polite">1</output>
-              <button type="button" data-step="1" aria-label="Agregar una">+</button>
+            <p class="pdp-price price" data-total data-unit={first.price} aria-live="polite">{formatCOP(first.price)}</p>
+
+            <div class="pdp-order">
+              <div class="qty" role="group" aria-label="Cantidad">
+                <button type="button" data-step="-1" aria-label="Quitar una">−</button>
+                <output data-qty>1</output>
+                <button type="button" data-step="1" aria-label="Agregar una">+</button>
+              </div>
+              <a
+                class="btn btn-solid pdp-cta"
+                href={waLink(message(1, first))}
+                target="_blank"
+                rel="noopener"
+                data-wa
+                data-label={formatLabel(first)}
+              >
+                Pedir por WhatsApp
+              </a>
             </div>
-            <a class="btn btn-solid pdp-cta" href={waLink(message(1))} target="_blank" rel="noopener" data-wa>
-              Pedir por WhatsApp
-            </a>
           </div>
           <p class="small pdp-note">
-            Entregamos frías en {site.deliveryArea}. Muy pronto podrás pagar en línea.
+            Entregamos frías en {site.deliveryArea}. {site.deliveryNotes[0]} Muy pronto podrás pagar en línea.
           </p>
         </div>
       </div>
@@ -165,8 +206,50 @@ if (d.price) {
     color: var(--deep);
   }
   .pdp-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .pdp-actions {
+    display: grid;
+    gap: 14px;
+    width: 100%;
+    max-width: 440px;
+    margin-top: 6px;
+  }
+  .formats { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+  .formats legend { padding: 0; margin-bottom: 6px; }
+  .format { position: relative; display: block; }
+  .format input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .format-chip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 46px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .55);
+    cursor: pointer;
+    transition: background-color .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .format-chip:hover { border-color: var(--ink); }
+  .format-name { font-weight: 500; }
+  .format-name small { font-size: 13px; font-weight: 400; color: var(--ink-2); margin-left: 6px; }
+  .format input:checked + .format-chip {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--cream);
+  }
+  .format input:checked + .format-chip small { color: rgba(246, 239, 227, .75); }
+  .format input:focus-visible + .format-chip { outline: 2px solid var(--ink); outline-offset: 3px; }
+
   .pdp-price { font-size: 20px; }
-  .pdp-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+  .pdp-order { display: flex; flex-wrap: wrap; gap: 12px; }
   .qty {
     display: inline-flex;
     align-items: center;
@@ -231,19 +314,37 @@ if (d.price) {
 </style>
 
 <script>
+  // Cantidad + presentación → precio total y mensaje de WhatsApp.
   document.querySelectorAll<HTMLElement>('[data-order]').forEach((box) => {
     const out = box.querySelector<HTMLOutputElement>('[data-qty]');
     const link = box.querySelector<HTMLAnchorElement>('[data-wa]');
-    const template = box.dataset.template ?? '';
+    const total = box.querySelector<HTMLElement>('[data-total]');
+    const radios = [...box.querySelectorAll<HTMLInputElement>('input[name="formato"]')];
     if (!out || !link) return;
+
     const base = link.href.split('?')[0];
+    const name = box.dataset.name ?? '';
+    const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
     let qty = 1;
+
+    const update = () => {
+      const chosen = radios.find((r) => r.checked);
+      const label = chosen?.dataset.label ?? link.dataset.label ?? '';
+      const unit = Number(chosen?.dataset.price ?? total?.dataset.unit ?? 0);
+      out.value = String(qty);
+      if (total && unit) {
+        total.textContent = qty > 1 ? `${cop.format(unit * qty)} · ${qty} × ${cop.format(unit)}` : cop.format(unit);
+      }
+      const text = `Hola Blend, quiero pedir ${qty} × ${name}, ${label}.`;
+      link.href = `${base}?text=${encodeURIComponent(text)}`;
+    };
+
     box.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((btn) => {
       btn.addEventListener('click', () => {
         qty = Math.min(24, Math.max(1, qty + Number(btn.dataset.step)));
-        out.value = String(qty);
-        link.href = `${base}?text=${encodeURIComponent(template.replace('{qty}', String(qty)))}`;
+        update();
       });
     });
+    radios.forEach((r) => r.addEventListener('change', update));
   });
 </script>

@@ -1,0 +1,26 @@
+---
+// Puente entre Blend Drinks y Blend Digital, con la frase del catálogo.
+---
+<section class="bridge" aria-labelledby="bridge-title">
+  <div class="container bridge-inner">
+    <p class="eyebrow" data-reveal="fade-up">Creado con propósito</p>
+    <h2 id="bridge-title" class="h2 bridge-title" data-reveal="fade-up">
+      Y como cuidarnos también es <em>disfrutar</em>…
+    </h2>
+    <p class="lead bridge-lead" data-reveal="fade-up">
+      Lo que tomas tiene su complemento en lo que lees: ideas para la cocina y para la rutina de todos los días.
+    </p>
+  </div>
+</section>
+
+<style>
+  .bridge { padding-block: clamp(56px, 8vw, 112px) clamp(8px, 2vw, 24px); }
+  .bridge-inner {
+    display: grid;
+    gap: 18px;
+    justify-items: center;
+    text-align: center;
+  }
+  .bridge-title { max-width: 16ch; }
+  .bridge-lead { max-width: 46ch; }
+</style>

@@ -1,164 +1,199 @@
 ---
+// Un solo escenario para las dos líneas, sin marco: el arco (forma de la marca)
+// sostiene la foto; la lata y el libro flotan delante y comparten sombra.
+// Los accesos (tomar / leer) son etiquetas ancladas a esa misma composición.
 import Photo from './Photo.astro';
 import EbookCover3D from './EbookCover3D.astro';
 import pinkCloud from '../assets/bebidas/pink-cloud/travertino-palmas.png';
 import latteCutout from '../assets/bebidas/latte-ice/recorte.png';
 import { getEbooks } from '../data/catalog';
+import { site } from '../data/site';
 
-// Con portadas reales publicadas se muestran hasta dos; si no, un emblema de la línea.
-const covers = (await getEbooks()).filter((e) => !e.data.draft && e.data.cover).slice(0, 2);
+// Si ya hay un e-book publicado con portada real, protagoniza la escena.
+const featured = (await getEbooks()).find((e) => !e.data.draft && e.data.cover);
 ---
-<section class="hero">
-  <div class="container">
-    <header class="hero-head">
-      <p class="eyebrow" data-rise>Blend · Armenia, Quindío</p>
-      <h1 class="display hero-title" data-rise="2">
-        Bienestar que se <em>toma</em> y&nbsp;se&nbsp;<em>lee</em>.
+<section class="hero" aria-labelledby="hero-title">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <h1 id="hero-title" class="h1 hero-title" data-rise="2">
+        Bienestar que se <em>toma</em> y se <em>lee</em>.
       </h1>
       <p class="lead hero-lead" data-rise="3">
-        Bebidas frías con fruta, raíces y café de especialidad, sin azúcar añadida.
-        Y guías digitales para inspirarte en la cocina y en tu rutina.
+        Bebidas frías en lata, sin azúcar añadida, y e-books para tu cocina y tu rutina.
+        Lo que tomas y lo que lees, con un mismo propósito, desde {site.city}.
       </p>
-    </header>
+      <div class="hero-actions" data-rise="4">
+        <a class="btn btn-solid" href="/bebidas">Ver las bebidas</a>
+        <a class="hero-link" href="/digital">Ver los e-books</a>
+      </div>
+    </div>
 
-    <div class="doors">
-      <a href="/bebidas" class="door door-drinks flavored" data-tilt data-rise="4">
-        <div class="door-copy">
-          <span class="eyebrow">Blend Drinks</span>
-          <h2 class="door-title">Cinco latas frías, cada una con su carácter.</h2>
-          <span class="link-arrow">Explora las bebidas</span>
+    <div class="hero-scene flavored" data-tilt data-rise="3">
+      <div class="scene" aria-hidden="true">
+        <span class="scene-glow"></span>
+        <span class="scene-ground"></span>
+        <div class="scene-arch arch">
+          <Photo src={pinkCloud} alt="" eager sizes="(min-width: 900px) 30vw, 54vw" focus="50% 58%" maxWidth={1100} />
         </div>
-        <div class="door-art" aria-hidden="true">
-          <div class="door-arch arch">
-            <Photo src={pinkCloud} alt="" eager sizes="(min-width: 860px) 24vw, 50vw" focus="50% 58%" maxWidth={900} />
-          </div>
-          <div class="door-float">
-            <Photo src={latteCutout} alt="" fit="contain" eager sizes="(min-width: 860px) 12vw, 28vw" maxWidth={560} />
-          </div>
-        </div>
-      </a>
-
-      <a href="/digital" class="door door-digital" data-tilt data-rise="5">
-        <div class="door-copy">
-          <span class="eyebrow">Blend Digital</span>
-          <h2 class="door-title">E-books para inspirarte en la cocina y en tu rutina.</h2>
-          <span class="link-arrow">Descubre los e-books</span>
-        </div>
-        <div class="door-art door-art-books" aria-hidden="true">
-          {covers.length > 0 ? (
-            covers.map((e, i) => (
-              <div class="door-book" style={`--i:${i}`}>
-                <EbookCover3D title={e.data.title} cover={e.data.cover} color={e.data.coverColor} ink={e.data.coverInk} size="lg" />
-              </div>
-            ))
+        <div class="scene-book">
+          {featured ? (
+            <EbookCover3D
+              title={featured.data.title}
+              cover={featured.data.cover}
+              color={featured.data.coverColor}
+              ink={featured.data.coverInk}
+              size="md"
+              float
+            />
           ) : (
-            <div class="door-book">
-              <EbookCover3D title="Guías para tu día a día" mark="Blend Digital" size="lg" float />
-            </div>
+            <EbookCover3D title="Guías para tu día a día" mark="Blend Digital" size="md" float />
           )}
         </div>
+        <div class="scene-can">
+          <Photo src={latteCutout} alt="" fit="contain" eager sizes="(min-width: 900px) 12vw, 24vw" maxWidth={560} />
+        </div>
+      </div>
+      <a class="scene-tag scene-tag-drinks" href="/bebidas">
+        <span class="chip-dot"></span>Para tomar <span class="scene-tag-sub">· 5 latas</span>
       </a>
+      <a class="scene-tag scene-tag-books" href="/digital">
+        <span class="chip-dot"></span>Para leer <span class="scene-tag-sub">· e-books</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-strip">
+    <div class="container">
+      <p class="hero-claim">{site.claim}</p>
     </div>
   </div>
 </section>
 
 <style>
-  .hero { padding-block: clamp(36px, 6vw, 80px) clamp(24px, 4vw, 48px); }
-  .hero-head {
-    display: grid;
-    justify-items: center;
-    gap: 22px;
-    text-align: center;
-    margin-bottom: clamp(40px, 6vw, 76px);
-  }
-  .hero-title { max-width: 11.5ch; }
-  .hero-lead { max-width: 46ch; }
-
-  .doors { display: grid; gap: 16px; }
-
-  .door {
-    position: relative;
-    isolation: isolate;
-    display: grid;
-    grid-template-rows: auto 1fr;
-    gap: 24px;
-    min-height: clamp(480px, 46vw, 620px);
-    padding: clamp(24px, 3vw, 40px);
-    border-radius: var(--r-lg);
-    overflow: hidden;
-    transition: transform .8s var(--ease), box-shadow .8s var(--ease);
-  }
-  .door:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 40px 80px -50px rgba(42, 37, 32, .5);
-  }
-  .door:focus-visible { outline-offset: 4px; border-radius: var(--r-lg); }
-
-  .door-drinks {
-    --flavor: var(--pink);
-    background: radial-gradient(90% 70% at 70% 85%, var(--tint-strong), var(--tint) 70%);
-  }
-  .door-digital {
-    background:
-      radial-gradient(70% 60% at 55% 78%, color-mix(in oklab, var(--sage) 55%, var(--paper)), var(--paper) 72%);
-  }
-
-  .door-copy {
-    position: relative;
-    z-index: 2;
-    display: grid;
-    justify-items: start;
-    gap: 10px;
-    max-width: 30ch;
-  }
-  .door-title {
+  .hero { padding-block: clamp(24px, 4vw, 56px) 0; overflow: hidden; }
+  .hero-grid { display: grid; gap: clamp(32px, 5vw, 56px); align-items: center; }
+  .hero-copy { display: grid; gap: 20px; justify-items: start; }
+  .hero-title { max-width: 12ch; }
+  .hero-lead { max-width: 44ch; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+  .hero-link {
     font-family: var(--serif);
-    font-weight: 320;
-    font-size: clamp(26px, 2.6vw, 38px);
-    line-height: 1.06;
-    letter-spacing: -.02em;
-    margin-bottom: 6px;
+    font-style: italic;
+    font-size: 20px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 5px;
+    transition: color .3s var(--ease);
   }
+  .hero-link:hover { color: var(--deep); }
 
-  .door-art { position: relative; min-height: 270px; }
+  /* La escena: sin marco. El arco es la única forma; lata y libro flotan delante. */
+  .hero-scene { --flavor: var(--pink); position: relative; }
+  .scene { position: relative; aspect-ratio: 1; }
 
-  .door-arch {
+  /* Halo de color que mezcla las dos líneas (rosa de la bebida, salvia del papel). */
+  .scene-glow {
+    position: absolute;
+    inset: -8% -6% -4%;
+    z-index: 0;
+    background:
+      radial-gradient(48% 44% at 30% 78%, var(--tint-strong), transparent 72%),
+      radial-gradient(40% 40% at 80% 26%, color-mix(in oklab, var(--sage) 58%, var(--paper)), transparent 72%);
+    translate: calc(var(--mx, 0) * -8px) calc(var(--my, 0) * -6px);
+    transition: translate 1.2s var(--ease);
+    pointer-events: none;
+  }
+  .scene-ground {
+    position: absolute;
+    left: 8%;
+    right: 2%;
+    bottom: -1%;
+    height: 9%;
+    z-index: 1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(42, 37, 32, .26), transparent);
+    filter: blur(6px);
+  }
+  .scene-arch {
     --arch-v: 37.5%;
     position: absolute;
-    right: 4%;
+    z-index: 2;
+    left: 2%;
     bottom: 0;
-    width: min(54%, 320px);
+    width: 60%;
     aspect-ratio: 3 / 4;
-    translate: calc(var(--mx, 0) * -10px) calc(var(--my, 0) * -8px);
+    box-shadow: 0 40px 70px -40px rgba(42, 37, 32, .45);
+    translate: calc(var(--mx, 0) * -10px) calc(var(--my, 0) * -6px);
     transition: translate .9s var(--ease);
   }
-  .door-float {
+  .scene-arch :global(img) { transition: transform 1.4s var(--ease); }
+  .hero-scene:hover .scene-arch :global(img) { transform: scale(1.03); }
+  .scene-book {
     position: absolute;
-    left: 22%;
-    bottom: -3%;
-    width: min(30%, 180px);
+    z-index: 3;
+    right: 0;
+    bottom: 8%;
+    width: 33%;
+    translate: calc(var(--mx, 0) * 12px) calc(var(--my, 0) * 8px);
+    transition: translate .9s var(--ease);
+  }
+  .scene-book :global(.book) { --w: 100%; }
+  .scene-can {
+    position: absolute;
+    z-index: 4;
+    left: 47%;
+    bottom: 1%;
+    width: 23%;
     aspect-ratio: 2 / 3;
-    filter: drop-shadow(0 28px 26px rgba(42, 37, 32, .32));
+    filter: drop-shadow(0 26px 24px rgba(42, 37, 32, .34));
     translate: calc(var(--mx, 0) * 24px) calc(var(--my, 0) * 16px);
     transition: translate .9s var(--ease);
   }
-  .door-float :global(img) {
-    --rot: -5deg;
+  .scene-can :global(img) {
+    --rot: -6deg;
     animation: float-soft 8s ease-in-out infinite;
   }
 
-  .door-art-books {
-    display: grid;
-    place-items: center;
-    padding-bottom: 18px;
+  /* Etiquetas de la escena: los dos accesos, ancladas al arco y al libro. */
+  .scene-tag {
+    position: absolute;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--cream);
+    font-size: 13px;
+    font-weight: 500;
+    transition: transform .5s var(--ease), background-color .5s var(--ease);
   }
-  .door-art-books :global(.book) { --w: clamp(150px, 20vw, 250px); }
-  .door-book {
-    grid-area: 1 / 1;
-    translate: calc(var(--i, 0) * 46%) calc(var(--i, 0) * 4%);
+  .scene-tag:hover,
+  .scene-tag:focus-visible { transform: translateY(-2px); background: var(--warm); }
+  .scene-tag-sub { color: var(--ink-2); font-weight: 400; }
+  .scene-tag-drinks { --flavor: var(--pink); left: 0; top: 14%; }
+  .scene-tag-books { --flavor: var(--sage-ink); right: 0; top: 24%; }
+
+  .hero-strip {
+    margin-top: clamp(36px, 6vw, 72px);
+    border-block: 1px solid var(--line);
+  }
+  .hero-claim {
+    max-width: none;
+    padding-block: 18px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(20px, 2vw, 26px);
+    text-align: center;
+    color: var(--ink-2);
   }
 
-  @media (min-width: 860px) {
-    .doors { grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (min-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr 1.08fr; gap: clamp(40px, 6vw, 88px); }
+    .scene { aspect-ratio: 5 / 4; }
+    .scene-tag-drinks { top: 10%; }
+    .scene-tag-books { top: 22%; }
   }
 </style>
