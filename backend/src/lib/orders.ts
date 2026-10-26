@@ -269,8 +269,12 @@ export async function setStatus(orderId: string, next: OrderStatus, message: str
 // Trae el pedido de Mercado Pago y lo aplica, después de comprobar que corresponde al nuestro.
 export async function syncFromMercadoPago(mpOrderId: string) {
   const mp = await getOrder(mpOrderId);
+  // Órdenes de la misma cuenta que no son de la web (referencia que no es un id de pedido): se ignoran
+  // en vez de fallar, para que Mercado Pago no reintente el aviso durante días.
+  const ref = mp.external_reference && /^[0-9a-f-]{36}$/i.test(mp.external_reference) ? mp.external_reference : null;
+  if (mp.external_reference && !ref) return { ok: false, reason: 'orden ajena a la web' };
   const o = await db.query.order.findFirst({
-    where: mp.external_reference ? eq(schema.order.id, mp.external_reference) : eq(schema.order.mpOrderId, mpOrderId),
+    where: ref ? eq(schema.order.id, ref) : eq(schema.order.mpOrderId, mpOrderId),
   });
   if (!o) return { ok: false, reason: 'pedido desconocido' };
   if (o.mpOrderId && o.mpOrderId !== mp.id) return { ok: false, reason: 'el id de Mercado Pago no coincide' };
