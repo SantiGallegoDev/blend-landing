@@ -9,6 +9,7 @@ const permissions = {
   inventario: ['owner', 'admin'],
   pedidos: ['owner', 'admin', 'operador'],
   reembolsos: ['owner', 'admin'],
+  alertas: ['owner', 'admin'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof permissions;

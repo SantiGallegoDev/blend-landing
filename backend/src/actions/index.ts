@@ -8,6 +8,7 @@ import { audit } from '../lib/audit';
 import { sendMail } from '../lib/mail';
 import { hashToken, newToken } from '../lib/tokens';
 import { createAdminUser } from '../lib/users';
+import { alerts } from './alerts';
 import { catalog } from './catalog';
 import { orders } from './orders';
 import { ipOf, requireUser } from './shared';
@@ -15,6 +16,7 @@ import { ipOf, requireUser } from './shared';
 const INVITE_HOURS = 24;
 
 export const server = {
+  alerts,
   catalog,
   orders,
 

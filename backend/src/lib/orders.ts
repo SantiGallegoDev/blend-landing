@@ -11,6 +11,7 @@ import { queueEmail } from './emails';
 import { formatCOP } from './format';
 import { moveStock, OutOfStockError } from './inventory';
 import { cancelOrder, createCheckoutOrder, getOrder, mapStatus, MercadoPagoError, type MpOrder } from './mercadopago';
+import { notifyPaidOrder } from './telegram';
 import { hashToken, newToken } from './tokens';
 
 export const RESERVATION_MINUTES = 60;
@@ -399,6 +400,13 @@ async function onPaid(orderId: string) {
         `Ver en el panel: ${env.ADMIN_ORIGIN}/admin/pedidos/${o.id}`,
       ].join('\n'),
     });
+  }
+
+  // Aviso al equipo por Telegram. Nunca debe afectar la confirmación del pago.
+  try {
+    await notifyPaidOrder(n, o, items);
+  } catch (err) {
+    console.error('telegram pedido pagado', err instanceof Error ? err.message : err);
   }
 }
 

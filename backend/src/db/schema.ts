@@ -364,6 +364,48 @@ export const emailLog = pgTable('email_log', {
   sentAt: timestamp('sent_at', { withTimezone: true }),
 }, (t) => [index('email_status_idx').on(t.status)]);
 
+// ── Alertas por Telegram ───────────────────────────────────────────────────
+
+// Chats (grupos, personas o canales) que reciben los avisos del bot.
+export const telegramChat = pgTable('telegram_chat', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  // Id del chat en Telegram. Cambia si un grupo pasa a supergrupo.
+  chatId: text('chat_id').notNull().unique(),
+  title: text('title').notNull(),
+  // private | group | supergroup | channel
+  type: text('type').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  addedBy: text('added_by').references(() => user.id, { onDelete: 'set null' }),
+  lastSentAt: timestamp('last_sent_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+
+// Códigos de un solo uso para vincular un chat desde el panel. Solo se guarda el hash.
+export const telegramLink = pgTable('telegram_link', {
+  codeHash: text('code_hash').primaryKey(),
+  createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  chatId: text('chat_id'),
+  createdAt: created(),
+});
+
+// Avisos por enviar, con reintentos (como email_log).
+export const telegramMessage = pgTable('telegram_message', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  chatRef: uuid('chat_ref').notNull().references(() => telegramChat.id, { onDelete: 'cascade' }),
+  orderId: uuid('order_id').references(() => order.id, { onDelete: 'set null' }),
+  kind: text('kind').notNull(),
+  text: text('text').notNull(),
+  status: text('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  error: text('error'),
+  createdAt: created(),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+}, (t) => [index('telegram_message_status_idx').on(t.status)]);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export const roles = roleEnum.enumValues;
 export type ProductType = (typeof productTypeEnum.enumValues)[number];

@@ -20,6 +20,7 @@ const nav = [
   { href: '/admin/productos', label: 'Productos', show: can(user?.role, 'productos') },
   { href: '/admin/inventario', label: 'Inventario', show: can(user?.role, 'inventario') },
   { href: '/admin/entregas', label: 'Domicilio', show: can(user?.role, 'productos') },
+  { href: '/admin/alertas', label: 'Alertas', show: can(user?.role, 'alertas') },
   { href: '/admin/usuarios', label: 'Usuarios', show: can(user?.role, 'usuarios') },
   { href: '/admin/actividad', label: 'Actividad', show: can(user?.role, 'actividad') },
   { href: '/admin/cuenta', label: 'Mi cuenta', show: true },

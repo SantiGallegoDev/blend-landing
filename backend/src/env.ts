@@ -34,6 +34,11 @@ const schema = z.object({
   // Solo para pruebas locales contra un simulador; en producción se deja vacío.
   MP_API_BASE: z.string().default('https://api.mercadopago.com'),
 
+  // Bot de Telegram para avisar al equipo de cada compra (BotFather). Sin token, las alertas quedan apagadas.
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  // Solo para pruebas locales contra un simulador; en producción se deja vacío.
+  TELEGRAM_API_BASE: z.string().default('https://api.telegram.org'),
+
   // Deploy Hook de Vercel para el botón "Publicar en la web".
   VERCEL_DEPLOY_HOOK_URL: z.string().optional(),
 });

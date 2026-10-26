@@ -1,0 +1,226 @@
+---
+import { actions } from 'astro:actions';
+import { desc, eq } from 'drizzle-orm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db, schema } from '../../db';
+import { formatDate } from '../../lib/format';
+import { requirePermission } from '../../lib/guard';
+import { getBot, getWebhookInfo, LINK_MINUTES, telegramConfigured, webhookUrl } from '../../lib/telegram';
+
+const denied = requirePermission(Astro, 'alertas');
+if (denied) return denied;
+
+const configured = telegramConfigured();
+const link = Astro.getActionResult(actions.alerts.linkCode);
+const tested = Astro.getActionResult(actions.alerts.test);
+const removed = Astro.getActionResult(actions.alerts.remove);
+const reconnected = Astro.getActionResult(actions.alerts.reconnect);
+const otherError = [link, tested, removed, reconnected, Astro.getActionResult(actions.alerts.setEnabled)].find((r) => r?.error)?.error?.message;
+
+// Estado del bot: se consulta en vivo para mostrar problemas del webhook.
+let bot: { username: string; name: string } | null = null;
+let hook: { ok: boolean; error?: string; pending: number } | null = null;
+let botError: string | null = null;
+if (configured) {
+  try {
+    bot = await getBot();
+    const info = await getWebhookInfo();
+    const recentError = info.last_error_date && Date.now() / 1000 - info.last_error_date < 3600 ? info.last_error_message : undefined;
+    hook = { ok: info.url === webhookUrl() && !recentError, error: info.url !== webhookUrl() ? 'El webhook no está registrado en esta API.' : recentError, pending: info.pending_update_count };
+  } catch (err) {
+    botError = err instanceof Error ? err.message : 'No se pudo hablar con Telegram.';
+  }
+}
+
+const chats = await db.query.telegramChat.findMany({ orderBy: [desc(schema.telegramChat.createdAt)] });
+const recent = await db
+  .select({
+    id: schema.telegramMessage.id,
+    status: schema.telegramMessage.status,
+    error: schema.telegramMessage.error,
+    createdAt: schema.telegramMessage.createdAt,
+    sentAt: schema.telegramMessage.sentAt,
+    chat: schema.telegramChat.title,
+    orderId: schema.telegramMessage.orderId,
+  })
+  .from(schema.telegramMessage)
+  .innerJoin(schema.telegramChat, eq(schema.telegramChat.id, schema.telegramMessage.chatRef))
+  .orderBy(desc(schema.telegramMessage.createdAt))
+  .limit(10);
+
+const typeLabel: Record<string, string> = { private: 'Persona', group: 'Grupo', supergroup: 'Grupo', channel: 'Canal' };
+const sendLabel: Record<string, [string, string]> = {
+  sent: ['Enviado', 'badge-ok'],
+  pending: ['En cola', 'badge-warn'],
+  failed: ['Reintentando', 'badge-warn'],
+  dropped: ['No entregado', 'badge-bad'],
+};
+---
+<AdminLayout title="Alertas">
+  <h1>Alertas por Telegram</h1>
+  <p class="muted">Cada compra pagada llega como mensaje a los chats de esta lista. Puede ser un grupo del equipo, una persona o un canal.</p>
+
+  {otherError && <p class="alert alert-bad" role="alert">{otherError}</p>}
+  {tested?.data && <p class="alert alert-ok">Mensaje de prueba enviado a {tested.data.title}.</p>}
+  {removed?.data && <p class="alert alert-ok">{removed.data.title} ya no recibe alertas.</p>}
+  {reconnected && !reconnected.error && <p class="alert alert-ok">Webhook registrado de nuevo.</p>}
+
+  <section class="card stack">
+    <h2>Bot</h2>
+    {!configured ? (
+      <div class="stack">
+        <p class="alert alert-warn">Las alertas están apagadas: falta el token del bot.</p>
+        <ol class="steps small">
+          <li>En Telegram, abre <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, escribe <code>/newbot</code> y sigue los pasos.</li>
+          <li>Copia el token que te entrega y guárdalo en Railway como <code>TELEGRAM_BOT_TOKEN</code> en el servicio backend.</li>
+          <li>Cuando el servicio se reinicie, vuelve a esta página para agregar los chats.</li>
+        </ol>
+      </div>
+    ) : botError ? (
+      <p class="alert alert-bad">Telegram no aceptó el token: {botError}</p>
+    ) : (
+      <div class="row">
+        <span>
+          <strong>{bot!.name}</strong>{' '}
+          <a href={`https://t.me/${bot!.username}`} target="_blank" rel="noopener" class="muted">@{bot!.username}</a>
+        </span>
+        {hook?.ok ? <span class="badge badge-ok">Conectado</span> : <span class="badge badge-bad">Sin conexión</span>}
+        {hook && !hook.ok && (
+          <>
+            <span class="small muted">{hook.error}</span>
+            <form method="post" action={actions.alerts.reconnect}>
+              <button class="btn btn-sm">Reconectar</button>
+            </form>
+          </>
+        )}
+      </div>
+    )}
+  </section>
+
+  {configured && !botError && (
+    <section class="card stack">
+      <div>
+        <h2>Agregar un chat</h2>
+        <p class="small muted">Genera un código de un solo uso (vence en {LINK_MINUTES} minutos) y entrégaselo al bot desde el chat que quieres sumar.</p>
+      </div>
+      {link?.data ? (
+        <div class="stack link">
+          <p class="code-box mono" aria-label="Código">{link.data.code}</p>
+          <div class="row">
+            <a class="btn btn-solid" href={link.data.group} target="_blank" rel="noopener">Agregar a un grupo</a>
+            <a class="btn" href={link.data.private} target="_blank" rel="noopener">Recibirlas yo, en privado</a>
+          </div>
+          <ul class="small muted hints">
+            <li><strong>Grupo:</strong> el botón abre Telegram, eliges el grupo y el bot entra con el código. Si el bot ya estaba en el grupo, escribe ahí <code>/start@{link.data.username} {link.data.code}</code>.</li>
+            <li><strong>Canal:</strong> agrega a @{link.data.username} como administrador del canal y publica <code>/vincular {link.data.code}</code>.</li>
+            <li>El bot responde “Listo” en el chat. Después <a href="/admin/alertas">actualiza esta página</a> para verlo en la lista.</li>
+          </ul>
+        </div>
+      ) : (
+        <form method="post" action={actions.alerts.linkCode}>
+          <button class="btn btn-solid">Generar código</button>
+        </form>
+      )}
+    </section>
+  )}
+
+  <section class="card stack">
+    <h2>Chats que reciben alertas</h2>
+    {chats.length === 0 ? (
+      <p class="muted small">Todavía no hay chats. {configured ? 'Genera un código para agregar el primero.' : ''}</p>
+    ) : (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Chat</th><th>Estado</th><th>Último aviso</th><th></th></tr></thead>
+          <tbody>
+            {chats.map((c) => (
+              <tr>
+                <td>
+                  <div>{c.title}</div>
+                  <div class="small muted">{typeLabel[c.type] ?? c.type} · agregado {formatDate(c.createdAt)}</div>
+                </td>
+                <td>
+                  {c.enabled ? <span class="badge badge-ok">Activo</span> : <span class="badge">Pausado</span>}
+                  {c.lastError && <div class="small err">{c.lastError}</div>}
+                </td>
+                <td class="small">{formatDate(c.lastSentAt)}</td>
+                <td class="end">
+                  <div class="row actions">
+                    {configured && c.enabled && (
+                      <form method="post" action={actions.alerts.test}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <button class="btn btn-sm">Probar</button>
+                      </form>
+                    )}
+                    <form method="post" action={actions.alerts.setEnabled}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <input type="hidden" name="enabled" value={c.enabled ? 'false' : 'true'} />
+                      <button class="btn btn-sm">{c.enabled ? 'Pausar' : 'Activar'}</button>
+                    </form>
+                    <form method="post" action={actions.alerts.remove} data-confirm={`¿Quitar ${c.title}? Dejará de recibir alertas.`}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <button class="btn btn-sm btn-danger">Quitar</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+    <p class="small muted">Para que el bot deje de escribir en un grupo también basta con sacarlo del grupo: aquí queda pausado solo.</p>
+  </section>
+
+  {recent.length > 0 && (
+    <section class="card stack">
+      <h2>Últimos avisos</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fecha</th><th>Chat</th><th>Estado</th><th></th></tr></thead>
+          <tbody>
+            {recent.map((m) => {
+              const [label, badge] = sendLabel[m.status] ?? [m.status, ''];
+              return (
+                <tr>
+                  <td class="small">{formatDate(m.sentAt ?? m.createdAt)}</td>
+                  <td>{m.chat}</td>
+                  <td>
+                    <span class:list={['badge', badge]}>{label}</span>
+                    {m.error && m.status !== 'sent' && <div class="small err">{m.error}</div>}
+                  </td>
+                  <td class="end">{m.orderId && <a href={`/admin/pedidos/${m.orderId}`} class="small">Ver pedido</a>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+</AdminLayout>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirm)) e.preventDefault();
+    });
+  });
+</script>
+
+<style>
+  .steps { display: grid; gap: 6px; padding-left: 20px; margin: 0; }
+  .code-box {
+    justify-self: start;
+    padding: 10px 18px;
+    border-radius: 10px;
+    background: var(--cream);
+    font-size: 22px;
+    letter-spacing: .18em;
+    user-select: all;
+  }
+  .hints { display: grid; gap: 6px; padding-left: 18px; margin: 0; }
+  .end { text-align: right; }
+  .actions { justify-content: flex-end; gap: 6px; }
+  .err { color: var(--bad); margin-top: 4px; }
+</style>

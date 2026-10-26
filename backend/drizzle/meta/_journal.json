@@ -29,6 +29,13 @@
       "when": 1792988701396,
       "tag": "0003_quitar_zonas",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792993698644,
+      "tag": "0004_alertas_telegram",
+      "breakpoints": true
     }
   ]
 }

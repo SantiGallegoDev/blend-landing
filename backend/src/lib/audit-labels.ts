@@ -16,4 +16,9 @@ export const actionLabel: Record<string, string> = {
   'user.role': 'Cambió un rol',
   'user.disable': 'Desactivó una cuenta',
   'user.enable': 'Reactivó una cuenta',
+  'telegram.link_code': 'Generó un código para vincular un chat de Telegram',
+  'telegram.chat_enable': 'Activó las alertas en un chat de Telegram',
+  'telegram.chat_disable': 'Pausó las alertas en un chat de Telegram',
+  'telegram.chat_remove': 'Quitó un chat de Telegram',
+  'telegram.test': 'Envió una alerta de prueba por Telegram',
 };
