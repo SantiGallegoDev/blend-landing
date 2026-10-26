@@ -153,6 +153,12 @@ if (d.price) {
                 Listo, quedó en tu carrito. <a href="/carrito" class="link-arrow">Ver carrito</a>
               </p>
             )}
+            {cart && (
+              <p class="small pdp-wa">
+                ¿Prefieres pedir por WhatsApp?{' '}
+                <a href={waLink(`Hola Blend, quiero pedir ${d.name}.`)} target="_blank" rel="noopener">Escríbenos al {site.whatsappDisplay}</a>
+              </p>
+            )}
           </div>
           <ul class="pdp-promise small">
             <li>Entregamos frías en {site.deliveryArea}.</li>
@@ -299,6 +305,7 @@ if (d.price) {
 
   .pdp-price { font-size: 20px; }
   .pdp-pack-note a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .pdp-wa a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .pdp-added { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--ink); }
   .pdp-added:not([hidden]) { animation: added-in .5s var(--ease); }
   @keyframes added-in { from { opacity: 0; transform: translateY(-4px); } }

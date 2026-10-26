@@ -1,7 +1,7 @@
 ---
 // Cómo pedir: pasos, precios y entrega tal como los trae el catálogo.
 import PaymentMethods from './PaymentMethods.astro';
-import { site, formatCOP, perUnit } from '../data/site';
+import { site, formatCOP, perUnit, waLink } from '../data/site';
 import { flowFormats } from '../data/shop';
 
 const steps = [
@@ -24,6 +24,9 @@ const prices = (await flowFormats()).map((f) => [f.label, formatCOP(f.price), pe
       </p>
       <a href="/bebidas" class="btn btn-solid" data-reveal="fade-up">Elige tus bebidas</a>
       <PaymentMethods size="sm" class="order-pay" />
+      <p class="small order-wa" data-reveal="fade-up">
+        ¿Prefieres WhatsApp? <a href={waLink()} target="_blank" rel="noopener">Pide al {site.whatsappDisplay}</a> y lo coordinamos por chat.
+      </p>
     </div>
 
     <ol class="order-steps" data-reveal-children>
@@ -55,6 +58,7 @@ const prices = (await flowFormats()).map((f) => [f.label, formatCOP(f.price), pe
   .order-copy { display: grid; gap: 18px; justify-items: start; align-content: start; }
   .order-copy .btn { margin-top: 8px; }
   .order-copy :global(.order-pay) { margin-top: 6px; color: var(--ink-2); }
+  .order-wa a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .order-steps { list-style: none; margin: 0; padding: 0; display: grid; }
   .order-steps li {
     display: grid;

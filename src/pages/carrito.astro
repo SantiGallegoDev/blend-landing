@@ -86,6 +86,9 @@ const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: d
             <button type="submit" class="btn btn-solid btn-block">Ir a pagar</button>
             <PaymentMethods size="sm" label="Pago seguro" class="cart-pay" />
             <p class="small">Blend nunca ve ni guarda los datos de tu tarjeta.</p>
+            <p class="small cart-wa">
+              ¿Prefieres WhatsApp? <a data-wa href={waLink()} target="_blank" rel="noopener">Envíanos este pedido al {site.whatsappDisplay}</a>
+            </p>
           </form>
         ) : (
           <div class="checkout">
@@ -129,6 +132,8 @@ const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: d
   .totals .total dd { font-size: 18px; }
   .checkout { display: grid; gap: 18px; }
   .checkout :global(.cart-pay) { color: var(--ink-2); justify-content: center; }
+  .cart-wa { text-align: center; }
+  .cart-wa a { text-decoration: underline; text-underline-offset: 3px; }
   .delivery { display: grid; gap: 18px; border: 0; padding: 0; margin: 0; }
   .field { display: grid; gap: 6px; }
   .field span { font-size: 14px; font-weight: 500; }

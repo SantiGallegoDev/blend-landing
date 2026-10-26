@@ -83,6 +83,11 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
             Tu caja quedó en el carrito. <a href="/carrito" class="link-arrow">Ver carrito</a>
           </p>
         )}
+        {builder && (
+          <p class="small pack-wa">
+            ¿Prefieres WhatsApp? <a href={waLink(waText)} target="_blank" rel="noopener">Arma tu caja por chat al {site.whatsappDisplay}</a>
+          </p>
+        )}
       </div>
     </div>
   </div>
@@ -186,6 +191,7 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
   .pack-cta .btn:disabled { opacity: .45; cursor: default; }
   .pack-cta .btn:disabled:hover { color: var(--btn-fg); }
   .pack-cta .btn:disabled::before { display: none; }
+  .pack-wa a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .pack-added { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--ink); }
 
   @media (min-width: 1000px) {
