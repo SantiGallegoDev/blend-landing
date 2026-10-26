@@ -15,3 +15,5 @@ dist
 ebooks/
 *.pdf
 .blend-cache
+
+.vercel
