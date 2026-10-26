@@ -1,0 +1,126 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+const params = Astro.url.searchParams;
+const expired = params.has('expirada');
+const welcome = params.get('bienvenida');
+---
+<AdminLayout title="Iniciar sesión" bare>
+  <div class="card stack">
+    <div class="stack-tight">
+      <h1>Iniciar sesión</h1>
+      <p class="muted small">Panel de administración de Blend.</p>
+    </div>
+
+    {expired && <p class="alert alert-warn">Tu sesión venció. Vuelve a entrar.</p>}
+    {welcome && <p class="alert alert-ok">Cuenta creada. Entra con tu contraseña para activar la verificación en dos pasos.</p>}
+    <p class="alert alert-bad" id="error" role="alert" hidden></p>
+
+    <form id="password-step" class="stack" novalidate>
+      <label class="field">
+        <span>Correo</span>
+        <input type="email" name="email" autocomplete="username webauthn" required value={welcome ?? ''} />
+      </label>
+      <label class="field">
+        <span>Contraseña</span>
+        <input type="password" name="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn btn-solid">Continuar</button>
+      <button type="button" class="btn" id="passkey">Entrar con passkey</button>
+    </form>
+
+    <form id="code-step" class="stack" novalidate hidden>
+      <label class="field">
+        <span id="code-label">Código de tu app autenticadora</span>
+        <input class="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required />
+      </label>
+      <button type="submit" class="btn btn-solid">Verificar</button>
+      <button type="button" class="btn-link small" id="toggle-backup">Usar un código de respaldo</button>
+    </form>
+  </div>
+</AdminLayout>
+
+<style>
+  .stack-tight { display: grid; gap: 4px; }
+  #toggle-backup { justify-self: center; }
+</style>
+
+<script>
+  import { authClient, errorMessage } from '../../lib/auth-client';
+
+  const next = new URLSearchParams(location.search).get('next');
+  // Solo se redirige dentro del panel: evita redirecciones abiertas.
+  const target = next && /^\/admin(\/[\w\-/]*)?$/.test(next) ? next : '/admin';
+
+  const errorBox = document.getElementById('error')!;
+  const passwordStep = document.getElementById('password-step') as HTMLFormElement;
+  const codeStep = document.getElementById('code-step') as HTMLFormElement;
+  const codeInput = codeStep.elements.namedItem('code') as HTMLInputElement;
+  const codeLabel = document.getElementById('code-label')!;
+  const toggleBackup = document.getElementById('toggle-backup')!;
+  let useBackup = false;
+
+  const showError = (msg: string | null) => {
+    errorBox.textContent = msg ?? '';
+    errorBox.hidden = !msg;
+  };
+  const busy = (form: HTMLFormElement, on: boolean) => {
+    form.querySelectorAll('button').forEach((b) => (b.disabled = on));
+  };
+
+  passwordStep.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(null);
+    const data = new FormData(passwordStep);
+    busy(passwordStep, true);
+    const { data: res, error } = await authClient.signIn.email({
+      email: String(data.get('email')),
+      password: String(data.get('password')),
+    });
+    busy(passwordStep, false);
+    if (error) return showError(errorMessage(error));
+    if (res && 'twoFactorRedirect' in res && res.twoFactorRedirect) {
+      passwordStep.hidden = true;
+      codeStep.hidden = false;
+      codeInput.focus();
+      return;
+    }
+    location.assign(target);
+  });
+
+  codeStep.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(null);
+    const code = codeInput.value.trim();
+    busy(codeStep, true);
+    const { error } = useBackup
+      ? await authClient.twoFactor.verifyBackupCode({ code })
+      : await authClient.twoFactor.verifyTotp({ code });
+    busy(codeStep, false);
+    if (error) {
+      codeInput.select();
+      return showError(errorMessage(error));
+    }
+    location.assign(target);
+  });
+
+  toggleBackup.addEventListener('click', () => {
+    useBackup = !useBackup;
+    codeLabel.textContent = useBackup ? 'Código de respaldo' : 'Código de tu app autenticadora';
+    toggleBackup.textContent = useBackup ? 'Usar la app autenticadora' : 'Usar un código de respaldo';
+    codeInput.classList.toggle('code', !useBackup);
+    codeInput.inputMode = useBackup ? 'text' : 'numeric';
+    codeInput.maxLength = useBackup ? 32 : 6;
+    codeInput.removeAttribute('pattern');
+    if (!useBackup) codeInput.pattern = '[0-9]{6}';
+    codeInput.value = '';
+    codeInput.focus();
+  });
+
+  document.getElementById('passkey')!.addEventListener('click', async () => {
+    showError(null);
+    const { error } = await authClient.signIn.passkey();
+    if (error) return showError('No se pudo entrar con la passkey.');
+    location.assign(target);
+  });
+</script>

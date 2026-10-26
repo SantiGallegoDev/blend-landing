@@ -1,0 +1,314 @@
+---
+// Carrito y checkout. El navegador solo arma la lista; el total real lo calcula el servidor
+// y el pago ocurre en Mercado Pago. Se activa con site.checkoutEnabled + BLEND_API_URL.
+import { getImage } from 'astro:assets';
+import { getCollection, getEntry } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PaymentMethods from '../components/PaymentMethods.astro';
+import { API_URL, CHECKOUT_ON } from '../data/blend-api';
+import { getDrinks, getEbooks } from '../data/catalog';
+import { site, waLink } from '../data/site';
+
+const enabled = (site.checkoutEnabled || CHECKOUT_ON) && !!API_URL;
+const drinks = await getDrinks();
+const ebooks = await getEbooks();
+const combos = await getCollection('combos');
+// Entregas solo en el Quindío, con domicilio de valor fijo.
+const domicilio = (await getEntry('domicilio', 'config'))?.data ?? { fee: null, cities: [], note: '' };
+
+type Entry = { product: string; variant: string; price: number; digital: boolean; href: string; thumb: string | null; color: string };
+const variants: Record<string, Entry> = {};
+for (const d of drinks) {
+  const thumb = (await getImage({ src: d.data.card.src, width: 160, height: 160, fit: 'cover', format: 'webp' })).src;
+  for (const v of d.data.variants) {
+    variants[v.id] = { product: d.data.name, variant: v.name, price: v.price, digital: false, href: `/bebidas/${d.id}`, thumb, color: d.data.flavor };
+  }
+}
+for (const e of ebooks) {
+  const thumb = e.data.cover ? (await getImage({ src: e.data.cover.src, width: 160, height: 160, fit: 'cover', format: 'webp' })).src : null;
+  for (const v of e.data.variants) {
+    variants[v.id] = { product: e.data.title, variant: v.name, price: v.price, digital: true, href: `/digital/${e.id}`, thumb, color: e.data.coverColor };
+  }
+}
+const bundles = Object.fromEntries(combos.map((c) => [c.id, { name: c.data.name, size: c.data.size, price: c.data.price }]));
+const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: domicilio }).replace(/</g, '\\u003c');
+---
+<BaseLayout title="Tu carrito · Blend" description="Revisa tu pedido y paga en línea con tarjeta, PSE o Efecty." noindex>
+  <section class="container section-sm cart" data-enabled={enabled ? 'true' : 'false'}>
+    <p class="eyebrow">Tu pedido</p>
+    <h1 class="h2">Carrito</h1>
+
+    <div class="cart-empty" hidden>
+      <p class="body">Tu carrito está vacío.</p>
+      <div class="cart-actions">
+        <a href="/bebidas" class="btn btn-solid">Ver bebidas</a>
+        <a href="/digital" class="btn">Ver e-books</a>
+      </div>
+    </div>
+
+    <div class="cart-grid" hidden>
+      <div>
+        <ul class="cart-lines" aria-live="polite"></ul>
+        <p class="small cart-stock" role="status" hidden></p>
+      </div>
+
+      <aside class="cart-summary">
+        <dl class="totals">
+          <div><dt>Subtotal</dt><dd class="price" data-subtotal></dd></div>
+          <div data-fee-row hidden><dt>Domicilio</dt><dd class="price" data-fee></dd></div>
+          <div class="total"><dt>Total</dt><dd class="price" data-total></dd></div>
+        </dl>
+
+        {enabled ? (
+          <form class="checkout" novalidate>
+            <label class="field"><span>Nombre</span><input name="name" autocomplete="name" required maxlength="80" /></label>
+            <label class="field"><span>Correo</span><input type="email" name="email" autocomplete="email" required maxlength="160" /></label>
+            <label class="field"><span>Celular (WhatsApp)</span><input type="tel" name="phone" autocomplete="tel" required maxlength="20" /></label>
+            <fieldset class="delivery" hidden>
+              <legend class="eyebrow">Entrega</legend>
+              <label class="field">
+                <span>Municipio (Quindío)</span>
+                <select name="city" autocomplete="address-level2">
+                  <option value="" selected disabled>Elige tu municipio</option>
+                  {domicilio.cities.map((c) => <option value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label class="field"><span>Dirección</span><input name="address" autocomplete="street-address" maxlength="200" placeholder="Calle, número y barrio" /></label>
+              <p class="small">Entregamos solo en el Quindío.{domicilio.note && ` ${domicilio.note}`}</p>
+              <label class="field"><span>Indicaciones (opcional)</span><input name="notes" maxlength="300" placeholder="Torre, apartamento, portería…" /></label>
+            </fieldset>
+            <p class="small digital-note" hidden>Los e-books llegan a tu correo apenas se confirma el pago.</p>
+            <label class="consent small">
+              <input type="checkbox" name="consent" required />
+              <span>Autorizo a Blend a tratar mis datos para gestionar este pedido, según la <a href="/privacidad">política de privacidad</a>.</span>
+            </label>
+            <p class="error small" role="alert" hidden></p>
+            <button type="submit" class="btn btn-solid btn-block">Ir a pagar</button>
+            <PaymentMethods size="sm" label="Pago seguro" class="cart-pay" />
+            <p class="small">Blend nunca ve ni guarda los datos de tu tarjeta.</p>
+          </form>
+        ) : (
+          <div class="checkout">
+            <p class="small">Envíanos tu pedido y te confirmamos el total y la hora de entrega.</p>
+            <a class="btn btn-solid btn-block" data-wa href={waLink()} target="_blank" rel="noopener">Enviar pedido</a>
+          </div>
+        )}
+      </aside>
+    </div>
+  </section>
+  <script type="application/json" id="cart-data" set:html={data} is:inline></script>
+</BaseLayout>
+
+<style>
+  .cart { display: grid; gap: 24px; }
+  .cart-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+  .cart-grid { display: grid; gap: 40px; align-items: start; }
+  @media (min-width: 960px) { .cart-grid { grid-template-columns: minmax(0, 1fr) 400px; gap: 64px; } }
+  .cart-lines { display: grid; }
+  .cart-lines :global(li) {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .cart-lines :global(.thumb) { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; background: var(--cream); }
+  .cart-lines :global(.name) { font-family: var(--serif); font-size: 22px; font-weight: 320; line-height: 1.15; text-decoration: none; color: inherit; }
+  .cart-lines :global(.detail) { font-size: 14px; color: var(--ink-2); }
+  .cart-lines :global(.qty) { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; border: 1px solid var(--line); border-radius: 999px; }
+  .cart-lines :global(.qty button) { width: 34px; height: 34px; border: 0; background: none; font-size: 18px; cursor: pointer; border-radius: 50%; }
+  .cart-lines :global(.qty span) { min-width: 24px; text-align: center; font-family: var(--mono); font-size: 14px; }
+  .cart-lines :global(.side) { display: grid; justify-items: end; gap: 6px; }
+  .cart-lines :global(.remove) { border: 0; background: none; color: var(--ink-2); font-size: 13px; text-decoration: underline; cursor: pointer; padding: 0; }
+  .cart-summary { display: grid; gap: 24px; padding: clamp(24px, 3vw, 36px); border-radius: var(--r-lg); background: var(--cream); }
+  .totals { display: grid; gap: 10px; margin: 0; }
+  .totals div { display: flex; justify-content: space-between; }
+  .totals dd { margin: 0; }
+  .totals .total { padding-top: 12px; border-top: 1px solid var(--line); font-weight: 500; }
+  .totals .total dd { font-size: 18px; }
+  .checkout { display: grid; gap: 18px; }
+  .checkout :global(.cart-pay) { color: var(--ink-2); justify-content: center; }
+  .delivery { display: grid; gap: 18px; border: 0; padding: 0; margin: 0; }
+  .field { display: grid; gap: 6px; }
+  .field span { font-size: 14px; font-weight: 500; }
+  .field input, .field select {
+    width: 100%;
+    min-height: 46px;
+    padding: 8px 2px;
+    border: 0;
+    border-bottom: 1px solid rgba(42, 37, 32, .35);
+    background: transparent;
+    font: 400 17px/1.3 var(--sans);
+    color: var(--ink);
+  }
+  .field input:focus, .field select:focus { outline: none; border-bottom: 2px solid var(--ink); }
+  .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+  .consent { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+  .consent input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ink); }
+  .consent a, .digital-note a { text-decoration: underline; text-underline-offset: 3px; }
+  .error { color: #9B2C3C; }
+  .cart-stock { color: #8A5A12; margin-top: 12px; }
+</style>
+
+<script>
+  import { readCart, setItemQty, removeBundle, onCartChange, type Cart } from '../scripts/cart';
+
+  type Entry = { product: string; variant: string; price: number; digital: boolean; href: string; thumb: string | null; color: string };
+  const data = JSON.parse(document.getElementById('cart-data')!.textContent!) as {
+    api: string;
+    variants: Record<string, Entry>;
+    bundles: Record<string, { name: string; size: number; price: number }>;
+    delivery: { fee: number | null; cities: string[]; note: string };
+  };
+  const root = document.querySelector<HTMLElement>('.cart')!;
+  const enabled = root.dataset.enabled === 'true';
+  const list = root.querySelector('.cart-lines')!;
+  const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const form = root.querySelector<HTMLFormElement>('form.checkout');
+  let stock: Record<string, number | null> = {};
+
+  function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...children: (Node | string)[]) {
+    const node = Object.assign(document.createElement(tag), props);
+    node.append(...children);
+    return node;
+  }
+
+  function thumb(entry?: Entry) {
+    if (entry?.thumb) return el('img', { className: 'thumb', src: entry.thumb, alt: '', width: 64, height: 64 });
+    const block = el('span', { className: 'thumb' });
+    if (entry) block.style.background = entry.color;
+    return block;
+  }
+
+  // Quita lo que ya no existe en el catálogo publicado (precio o producto retirado).
+  function clean(cart: Cart): Cart {
+    return {
+      items: cart.items.filter((i) => data.variants[i.variantId]),
+      bundles: cart.bundles.filter((b) => data.bundles[b.bundleId] && b.picks.every((p) => data.variants[p.variantId])),
+    };
+  }
+
+  function render() {
+    const cart = clean(readCart());
+    const empty = cart.items.length === 0 && cart.bundles.length === 0;
+    root.querySelector<HTMLElement>('.cart-empty')!.hidden = !empty;
+    root.querySelector<HTMLElement>('.cart-grid')!.hidden = empty;
+    if (empty) return;
+
+    list.replaceChildren(
+      ...cart.items.map((i) => {
+        const v = data.variants[i.variantId];
+        const dec = el('button', { type: 'button', ariaLabel: 'Quitar uno', onclick: () => setItemQty(i.variantId, i.qty - 1) }, '−');
+        const inc = el('button', { type: 'button', ariaLabel: 'Agregar uno', onclick: () => setItemQty(i.variantId, Math.min(i.qty + 1, v.digital ? 1 : 50)) }, '+');
+        return el(
+          'li',
+          {},
+          thumb(v),
+          el('div', {}, el('a', { className: 'name', href: v.href }, v.product), el('div', { className: 'detail' }, v.variant), v.digital ? '' : el('div', { className: 'qty' }, dec, el('span', {}, String(i.qty)), inc)),
+          el('div', { className: 'side' }, el('span', { className: 'price' }, cop.format(v.price * i.qty)), el('button', { type: 'button', className: 'remove', onclick: () => setItemQty(i.variantId, 0) }, 'Quitar')),
+        );
+      }),
+      ...cart.bundles.map((b) => {
+        const bundle = data.bundles[b.bundleId];
+        const detail = b.picks.map((p) => `${p.qty}× ${data.variants[p.variantId].product}`).join(', ');
+        return el(
+          'li',
+          {},
+          thumb(data.variants[b.picks[0].variantId]),
+          el('div', {}, el('span', { className: 'name' }, bundle.name), el('div', { className: 'detail' }, detail)),
+          el('div', { className: 'side' }, el('span', { className: 'price' }, cop.format(bundle.price)), el('button', { type: 'button', className: 'remove', onclick: () => removeBundle(b.key) }, 'Quitar')),
+        );
+      }),
+    );
+
+    const subtotal = cart.items.reduce((s, i) => s + data.variants[i.variantId].price * i.qty, 0) + cart.bundles.reduce((s, b) => s + data.bundles[b.bundleId].price, 0);
+    const physical = cart.bundles.length > 0 || cart.items.some((i) => !data.variants[i.variantId].digital);
+    const digital = cart.items.some((i) => data.variants[i.variantId].digital);
+    const fee = physical ? data.delivery.fee ?? 0 : 0;
+    root.querySelector('[data-subtotal]')!.textContent = cop.format(subtotal);
+    root.querySelector<HTMLElement>('[data-fee-row]')!.hidden = !physical || !enabled;
+    // Domicilio sin precio en el panel: no se puede pagar en línea un pedido con bebidas.
+    const noDelivery = physical && data.delivery.fee === null;
+    root.querySelector('[data-fee]')!.textContent = noDelivery ? 'Por confirmar' : fee ? cop.format(fee) : 'Gratis';
+    const submit = form?.querySelector<HTMLButtonElement>('button[type=submit]');
+    if (submit) submit.disabled = noDelivery;
+    const errorBox = form?.querySelector<HTMLElement>('.error');
+    if (errorBox && noDelivery) {
+      errorBox.textContent = 'Por ahora los domicilios se coordinan por WhatsApp.';
+      errorBox.hidden = false;
+    }
+    root.querySelector('[data-total]')!.textContent = cop.format(subtotal + (enabled ? fee : 0));
+
+    if (form) {
+      form.querySelector<HTMLElement>('.delivery')!.hidden = !physical;
+      form.querySelector<HTMLInputElement>('[name=address]')!.required = physical;
+      form.querySelector<HTMLSelectElement>('[name=city]')!.required = physical;
+      form.querySelector<HTMLElement>('.digital-note')!.hidden = !digital;
+    }
+
+    // Aviso si alguna cantidad supera lo disponible ahora.
+    const short = cart.items.filter((i) => typeof stock[i.variantId] === 'number' && i.qty > (stock[i.variantId] as number));
+    const box = root.querySelector<HTMLElement>('.cart-stock')!;
+    box.hidden = short.length === 0;
+    box.textContent = short.map((i) => `${data.variants[i.variantId].product}: quedan ${stock[i.variantId]}.`).join(' ');
+
+    // Sin pagos en línea: el carrito arma el mensaje de WhatsApp.
+    const wa = root.querySelector<HTMLAnchorElement>('[data-wa]');
+    if (wa) {
+      const lines = [
+        ...cart.items.map((i) => `· ${i.qty} × ${data.variants[i.variantId].product} (${data.variants[i.variantId].variant})`),
+        ...cart.bundles.map((b) => `· ${data.bundles[b.bundleId].name}: ${b.picks.map((p) => `${p.qty} ${data.variants[p.variantId].product}`).join(', ')}`),
+      ];
+      const url = new URL(wa.href);
+      url.searchParams.set('text', `Hola Blend, quiero hacer este pedido:\n${lines.join('\n')}`);
+      wa.href = url.toString();
+    }
+  }
+
+  render();
+  onCartChange(render);
+
+  if (enabled && data.api) {
+    fetch(`${data.api}/api/stock`)
+      .then((r) => r.json())
+      .then((r) => { stock = r.stock ?? {}; render(); })
+      .catch(() => {});
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorBox = form.querySelector<HTMLElement>('.error')!;
+    errorBox.hidden = true;
+    if (!form.reportValidity()) return;
+    const cart = clean(readCart());
+    const f = new FormData(form);
+    const physical = cart.bundles.length > 0 || cart.items.some((i) => !data.variants[i.variantId].digital);
+    const button = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    button.disabled = true;
+    button.textContent = 'Abriendo el pago seguro…';
+    try {
+      const res = await fetch(`${data.api}/api/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart.items,
+          bundles: cart.bundles.map((b) => ({ bundleId: b.bundleId, picks: b.picks })),
+          customer: { name: f.get('name'), email: f.get('email'), phone: f.get('phone') },
+          delivery: physical ? { city: f.get('city'), address: f.get('address'), notes: f.get('notes') || undefined } : undefined,
+          consent: f.get('consent') === 'on',
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.issues?.[0]?.message ?? body.error ?? 'No se pudo iniciar el pago.');
+      // El carrito se vacía cuando el pedido queda pagado (página /pedido).
+      try { sessionStorage.setItem('blend.lastOrder', JSON.stringify({ id: body.id, token: body.token })); } catch {}
+      location.assign(body.checkoutUrl);
+    } catch (err) {
+      errorBox.textContent = err instanceof Error ? err.message : 'No se pudo iniciar el pago.';
+      errorBox.hidden = false;
+      button.disabled = false;
+      button.textContent = 'Ir a pagar';
+    }
+  });
+</script>

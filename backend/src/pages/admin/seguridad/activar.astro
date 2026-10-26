@@ -1,0 +1,112 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+// Sin 2FA no se ve nada del panel: el middleware trae aquí a toda sesión que no lo tenga.
+const user = Astro.locals.user;
+if (user?.twoFactorEnabled) return Astro.redirect('/admin');
+---
+<AdminLayout title="Activar verificación en dos pasos" bare>
+  <div class="card stack">
+    <div class="stack-tight">
+      <h1>Verificación en dos pasos</h1>
+      <p class="muted small">
+        Es obligatoria para usar el panel. Necesitas una app autenticadora en tu teléfono
+        (Google Authenticator, Microsoft Authenticator, 1Password u otra).
+      </p>
+    </div>
+    <p class="alert alert-bad" id="error" role="alert" hidden></p>
+
+    <form id="step-password" class="stack" novalidate>
+      <label class="field">
+        <span>Confirma tu contraseña</span>
+        <input type="password" name="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn btn-solid">Continuar</button>
+    </form>
+
+    <form id="step-scan" class="stack" novalidate hidden>
+      <p class="small">1. Escanea este código con la app autenticadora.</p>
+      <div id="qr" class="qr" role="img" aria-label="Código QR para la app autenticadora"></div>
+      <details class="small">
+        <summary>¿No puedes escanearlo? Escribe la clave</summary>
+        <code id="secret" class="secret"></code>
+      </details>
+      <label class="field">
+        <span>2. Escribe el código de 6 dígitos que muestra la app</span>
+        <input class="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required />
+      </label>
+      <button type="submit" class="btn btn-solid">Activar</button>
+    </form>
+
+    <div id="step-codes" class="stack" hidden>
+      <p class="alert alert-ok">Verificación en dos pasos activada.</p>
+      <p class="small">
+        Guarda estos <strong>códigos de respaldo</strong> en un lugar seguro (un gestor de contraseñas, por ejemplo).
+        Cada uno sirve una sola vez si pierdes el teléfono. No los volverás a ver.
+      </p>
+      <ol id="codes" class="codes mono"></ol>
+      <div class="row">
+        <button type="button" class="btn" id="copy">Copiar códigos</button>
+        <a href="/admin" class="btn btn-solid">Ya los guardé, ir al panel</a>
+      </div>
+    </div>
+
+    <form method="post" action="/admin/salir"><button type="submit" class="btn-link small">Cerrar sesión</button></form>
+  </div>
+</AdminLayout>
+
+<style>
+  .stack-tight { display: grid; gap: 4px; }
+  .qr { width: 200px; justify-self: center; }
+  .qr :global(svg) { display: block; width: 100%; height: auto; }
+  .secret { display: block; margin-top: 8px; word-break: break-all; padding: 8px; background: var(--cream); border-radius: 8px; }
+  .codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; margin: 0; padding: 12px 12px 12px 32px; background: var(--cream); border-radius: 10px; }
+</style>
+
+<script>
+  import { renderSVG } from 'uqr';
+  import { authClient, errorMessage } from '../../../lib/auth-client';
+
+  const errorBox = document.getElementById('error')!;
+  const stepPassword = document.getElementById('step-password') as HTMLFormElement;
+  const stepScan = document.getElementById('step-scan') as HTMLFormElement;
+  const stepCodes = document.getElementById('step-codes')!;
+  let backupCodes: string[] = [];
+
+  const showError = (msg: string | null) => {
+    errorBox.textContent = msg ?? '';
+    errorBox.hidden = !msg;
+  };
+
+  stepPassword.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(null);
+    const password = String(new FormData(stepPassword).get('password'));
+    const { data, error } = await authClient.twoFactor.enable({ password });
+    if (error || !data || data.method !== 'totp') return showError(errorMessage(error));
+    backupCodes = data.backupCodes;
+    const qr = document.getElementById('qr')!;
+    qr.replaceChildren(new DOMParser().parseFromString(renderSVG(data.totpURI), 'image/svg+xml').documentElement);
+    document.getElementById('secret')!.textContent = new URL(data.totpURI).searchParams.get('secret') ?? '';
+    stepPassword.hidden = true;
+    stepScan.hidden = false;
+    (stepScan.elements.namedItem('code') as HTMLInputElement).focus();
+  });
+
+  stepScan.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(null);
+    const code = String(new FormData(stepScan).get('code')).trim();
+    const { error } = await authClient.twoFactor.verifyTotp({ code });
+    if (error) return showError(errorMessage(error));
+    const list = document.getElementById('codes')!;
+    list.replaceChildren(...backupCodes.map((c) => Object.assign(document.createElement('li'), { textContent: c })));
+    stepScan.hidden = true;
+    stepCodes.hidden = false;
+  });
+
+  document.getElementById('copy')!.addEventListener('click', async (e) => {
+    await navigator.clipboard.writeText(backupCodes.join('\n'));
+    (e.currentTarget as HTMLButtonElement).textContent = 'Copiados';
+  });
+</script>

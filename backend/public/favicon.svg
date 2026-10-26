@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#FBF7EF"/>
+  <text x="32" y="44" text-anchor="middle"
+        font-family="Newsreader, Times New Roman, serif"
+        font-weight="400" font-size="42" fill="#2A2520"
+        letter-spacing="-1.2">B</text>
+</svg>

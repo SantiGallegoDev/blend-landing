@@ -1,0 +1,58 @@
+---
+import { desc, eq, lt } from 'drizzle-orm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db, schema } from '../../db';
+import { requirePermission } from '../../lib/guard';
+import { formatDate } from '../../lib/format';
+import { actionLabel } from '../../lib/audit-labels';
+
+const denied = requirePermission(Astro, 'actividad');
+if (denied) return denied;
+
+const PAGE = 50;
+const before = Number(Astro.url.searchParams.get('antes')) || null;
+
+const rows = await db
+  .select({ log: schema.auditLog, name: schema.user.name, email: schema.user.email })
+  .from(schema.auditLog)
+  .leftJoin(schema.user, eq(schema.auditLog.userId, schema.user.id))
+  .where(before ? lt(schema.auditLog.id, before) : undefined)
+  .orderBy(desc(schema.auditLog.id))
+  .limit(PAGE + 1);
+const hasMore = rows.length > PAGE;
+const page = rows.slice(0, PAGE);
+
+const describe = (value: unknown) => (value ? JSON.stringify(value) : '');
+---
+<AdminLayout title="Actividad">
+  <div>
+    <h1>Actividad</h1>
+    <p class="muted">Todo cambio en el panel queda registrado aquí: quién, qué y desde dónde.</p>
+  </div>
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead>
+        <tbody>
+          {page.map(({ log, name, email }) => (
+            <tr>
+              <td class="small nowrap">{formatDate(log.createdAt)}</td>
+              <td class="small">{name ?? <span class="muted">{log.action === 'auth.login_failed' ? log.entityId : '—'}</span>}{email && <div class="muted">{email}</div>}</td>
+              <td>{actionLabel[log.action] ?? log.action}</td>
+              <td class="small mono detail">{[describe(log.before), describe(log.after)].filter(Boolean).join(' → ')}</td>
+              <td class="small mono">{log.ip ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {page.length === 0 && <p class="muted">Sin actividad todavía.</p>}
+    {hasMore && <p class="more"><a class="btn btn-sm" href={`?antes=${page.at(-1)!.log.id}`}>Ver anteriores</a></p>}
+  </section>
+</AdminLayout>
+
+<style>
+  .nowrap { white-space: nowrap; }
+  .detail { max-width: 320px; word-break: break-word; }
+  .more { margin-top: 16px; }
+</style>

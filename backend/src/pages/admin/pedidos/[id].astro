@@ -1,0 +1,212 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db, schema } from '../../../db';
+import { can, requirePermission } from '../../../lib/guard';
+import { formatCOP, formatDate, fulfillmentLabel, orderStatusBadge, orderStatusLabel } from '../../../lib/format';
+import { orderNumber } from '../../../lib/orders';
+
+const denied = requirePermission(Astro, 'pedidos');
+if (denied) return denied;
+
+const me = Astro.locals.user!;
+const o = await db.query.order.findFirst({ where: eq(schema.order.id, Astro.params.id ?? '') });
+if (!o) return new Response('No encontrado', { status: 404 });
+const items = await db.query.orderItem.findMany({ where: eq(schema.orderItem.orderId, o.id) });
+const events = await db
+  .select({ e: schema.orderEvent, who: schema.user.name })
+  .from(schema.orderEvent)
+  .leftJoin(schema.user, eq(schema.orderEvent.userId, schema.user.id))
+  .where(eq(schema.orderEvent.orderId, o.id))
+  .orderBy(desc(schema.orderEvent.id));
+const grants = await db.query.downloadGrant.findMany({
+  where: and(eq(schema.downloadGrant.orderId, o.id), isNull(schema.downloadGrant.revokedAt)),
+  orderBy: [asc(schema.downloadGrant.createdAt)],
+});
+const emails = await db.query.emailLog.findMany({ where: eq(schema.emailLog.orderId, o.id), orderBy: [desc(schema.emailLog.id)] });
+
+const results = [actions.orders.setFulfillment, actions.orders.addNote, actions.orders.sync, actions.orders.cancel, actions.orders.refund, actions.orders.resendDownloads].map((a) => Astro.getActionResult(a));
+const err = results.find((r) => r?.error)?.error;
+const errorMsg = err && (isInputError(err) ? err.issues.map((i) => i.message).join(' · ') : err.message);
+const done = results.some((r) => r && !r.error);
+
+const steps = ['pending', 'preparing', 'dispatched', 'delivered'] as const;
+const canCancel = ['pending', 'processing', 'attention', 'failed'].includes(o.status);
+const canRefund = ['paid', 'attention'].includes(o.status) && !!o.mpOrderId && can(me.role, 'reembolsos');
+const waPhone = o.phone.replace(/\D/g, '').replace(/^(?!57)(\d{10})$/, '57$1');
+---
+<AdminLayout title={orderNumber(o.number)}>
+  <div class="head">
+    <div>
+      <a href="/admin/pedidos" class="small muted">← Pedidos</a>
+      <h1 class="mono-title">{orderNumber(o.number)}</h1>
+      <p class="row">
+        <span class:list={['badge', orderStatusBadge[o.status]]}>{orderStatusLabel[o.status]}</span>
+        {o.hasPhysical && <span class="badge">{fulfillmentLabel[o.fulfillment]}</span>}
+        <span class="small muted">{formatDate(o.createdAt)}</span>
+      </p>
+    </div>
+  </div>
+  {errorMsg && <p class="alert alert-bad">{errorMsg}</p>}
+  {done && <p class="alert alert-ok">Listo.</p>}
+  {o.status === 'attention' && <p class="alert alert-warn">Este pedido necesita revisión. Mira el historial para ver el motivo.</p>}
+
+  <div class="grid">
+    <div class="col">
+      <section class="card stack">
+        <h2>Productos</h2>
+        <table>
+          <tbody>
+            {items.map((i) => (
+              <tr>
+                <td>
+                  <strong>{i.quantity} × {i.name}</strong>
+                  {i.variantName && <div class="small muted">{i.variantName}</div>}
+                  {i.isDigital && <span class="badge">E-book</span>}
+                </td>
+                <td class="end">{formatCOP(i.total)}</td>
+              </tr>
+            ))}
+            {o.deliveryFee > 0 && <tr><td>Domicilio · {o.city}</td><td class="end">{formatCOP(o.deliveryFee)}</td></tr>}
+            <tr class="total"><td>Total</td><td class="end">{formatCOP(o.total)}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      {o.hasPhysical && o.status === 'paid' && (
+        <section class="card stack">
+          <h2>Entrega</h2>
+          <div class="steps">
+            {steps.map((s) => (
+              <form method="post" action={actions.orders.setFulfillment}>
+                <input type="hidden" name="orderId" value={o.id} />
+                <input type="hidden" name="fulfillment" value={s} />
+                <button class:list={['btn', 'btn-sm', o.fulfillment === s && 'btn-solid']} aria-pressed={o.fulfillment === s ? 'true' : 'false'}>{fulfillmentLabel[s]}</button>
+              </form>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {o.hasDigital && (
+        <section class="card stack">
+          <h2>E-books</h2>
+          {grants.length ? (
+            <ul class="small plain">
+              {grants.map((g) => <li>{g.downloads} de {g.maxDownloads} descargas · vence {formatDate(g.expiresAt)}</li>)}
+            </ul>
+          ) : <p class="small muted">{o.status === 'paid' ? 'Sin enlaces activos.' : 'Los enlaces se crean cuando se confirma el pago.'}</p>}
+          {o.status === 'paid' && (
+            <form method="post" action={actions.orders.resendDownloads}>
+              <input type="hidden" name="orderId" value={o.id} />
+              <button class="btn btn-sm">Reenviar enlaces (anula los anteriores)</button>
+            </form>
+          )}
+        </section>
+      )}
+
+      <section class="card stack">
+        <h2>Historial</h2>
+        <form method="post" action={actions.orders.addNote} class="note">
+          <input type="hidden" name="orderId" value={o.id} />
+          <input name="note" maxlength="1000" placeholder="Agregar una nota interna (ej. llamé al cliente)" aria-label="Nota interna" required />
+          <button class="btn btn-sm">Agregar</button>
+        </form>
+        <ol class="timeline">
+          {events.map(({ e, who }) => (
+            <li class:list={[e.type === 'note' && 'is-note']}>
+              <span class="small muted">{formatDate(e.createdAt)}{who && ` · ${who}`}</span>
+              <span>{e.message}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
+
+    <aside class="col">
+      <section class="card stack">
+        <h2>Cliente</h2>
+        <p><strong>{o.customerName}</strong></p>
+        <p class="small"><a href={`mailto:${o.email}`}>{o.email}</a></p>
+        <p class="small"><a href={`https://wa.me/${waPhone}`} target="_blank" rel="noopener noreferrer">{o.phone} · WhatsApp</a></p>
+        {o.hasPhysical && (
+          <div class="small">
+            <p>{o.address}</p>
+            <p><strong>{o.city}, Quindío</strong></p>
+            {o.deliveryNotes && <p class="muted">“{o.deliveryNotes}”</p>}
+          </div>
+        )}
+      </section>
+
+      <section class="card stack">
+        <h2>Pago</h2>
+        <p class="small">
+          Mercado Pago: {o.mpOrderId ? <span class="mono">{o.mpOrderId}</span> : <span class="muted">sin orden</span>}<br />
+          {o.mpStatus && <span class="muted">Estado: {o.mpStatus}{o.mpStatusDetail ? ` / ${o.mpStatusDetail}` : ''}</span>}
+        </p>
+        {o.paidAt && <p class="small">Pagado {formatDate(o.paidAt)}</p>}
+        {o.mpOrderId && (
+          <form method="post" action={actions.orders.sync}>
+            <input type="hidden" name="orderId" value={o.id} />
+            <button class="btn btn-sm">Consultar estado en Mercado Pago</button>
+          </form>
+        )}
+        {canCancel && (
+          <form method="post" action={actions.orders.cancel} data-confirm="¿Cancelar este pedido? Se anula el pago pendiente y vuelve el stock apartado.">
+            <input type="hidden" name="orderId" value={o.id} />
+            <button class="btn btn-sm btn-danger">Cancelar pedido</button>
+          </form>
+        )}
+        {canRefund && (
+          <form method="post" action={actions.orders.refund} class="stack-sm" data-confirm={`¿Reembolsar ${formatCOP(o.total)} a ${o.customerName}? No se puede deshacer.`}>
+            <input type="hidden" name="orderId" value={o.id} />
+            {o.hasPhysical && <label class="check small"><input type="checkbox" name="restock" /> Devolver las unidades al inventario</label>}
+            <button class="btn btn-sm btn-danger">Reembolsar total</button>
+          </form>
+        )}
+      </section>
+
+      {emails.length > 0 && (
+        <section class="card stack">
+          <h2>Correos</h2>
+          <ul class="small plain">
+            {emails.map((m) => (
+              <li>
+                <span class:list={['badge', m.status === 'sent' ? 'badge-ok' : m.status === 'failed' ? 'badge-bad' : '']}>{m.status === 'sent' ? 'Enviado' : m.status === 'failed' ? 'Falló' : 'Pendiente'}</span>
+                {' '}{m.subject}<br /><span class="muted">{m.to} · {formatDate(m.sentAt ?? m.createdAt)}{m.error ? ` · ${m.error}` : ''}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </aside>
+  </div>
+</AdminLayout>
+
+<style>
+  .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr) 320px; } }
+  .col { display: grid; gap: 20px; min-width: 0; }
+  .mono-title { font-family: var(--mono); font-size: 24px; }
+  .end { text-align: right; white-space: nowrap; }
+  .total td { font-weight: 500; border-bottom: 0; }
+  .steps { display: flex; gap: 8px; flex-wrap: wrap; }
+  .plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .note { display: flex; gap: 8px; }
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .timeline li { display: grid; gap: 2px; padding-left: 14px; border-left: 2px solid var(--line); }
+  .timeline li.is-note { border-left-color: var(--latte); }
+  .stack-sm { display: grid; gap: 8px; }
+  .check { display: flex; gap: 8px; align-items: center; }
+  .check input { width: auto; }
+  td .badge { margin-top: 4px; }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirm!)) e.preventDefault();
+    });
+  });
+</script>

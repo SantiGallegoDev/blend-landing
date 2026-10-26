@@ -1,0 +1,134 @@
+---
+// Página a la que vuelve el comprador desde Mercado Pago. Solo muestra el estado que tiene
+// el servidor (que lo confirma con Mercado Pago); los parámetros de la URL no cambian nada.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { API_URL } from '../data/blend-api';
+import { waLink } from '../data/site';
+---
+<BaseLayout title="Tu pedido · Blend" description="Estado de tu pedido en Blend." noindex>
+  <section class="container section-sm order" data-api={API_URL ?? ''}>
+    <p class="eyebrow" data-number>Tu pedido</p>
+    <h1 class="h2" data-title>Consultando tu pedido…</h1>
+    <p class="body" data-text></p>
+    <ul class="order-lines" hidden></ul>
+    <dl class="order-total" hidden><dt>Total</dt><dd class="price" data-total></dd></dl>
+    <div class="order-actions">
+      <a class="btn btn-solid" href="/bebidas" data-primary hidden>Seguir explorando</a>
+      <a class="btn" href={waLink('Hola Blend, tengo una pregunta sobre mi pedido.')} target="_blank" rel="noopener" data-help hidden>Escríbenos por WhatsApp</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .order { display: grid; gap: 20px; justify-items: start; max-width: 760px; }
+  .order-lines { display: grid; width: 100%; }
+  .order-lines :global(li) { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .order-lines :global(.detail) { display: block; font-size: 14px; color: var(--ink-2); }
+  .order-total { display: flex; justify-content: space-between; width: 100%; margin: 0; font-weight: 500; }
+  .order-total dd { margin: 0; font-size: 18px; }
+  .order-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+</style>
+
+<script>
+  import { clearCart } from '../scripts/cart';
+
+  const root = document.querySelector<HTMLElement>('.order')!;
+  const api = root.dataset.api;
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  const token = params.get('t');
+  const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const $ = (sel: string) => root.querySelector<HTMLElement>(sel)!;
+
+  type Order = {
+    number: string;
+    status: 'pending' | 'processing' | 'paid' | 'failed' | 'canceled' | 'refunded' | 'attention';
+    items: { name: string; detail: string | null; quantity: number; total: number; isDigital: boolean }[];
+    total: number;
+    deliveryFee: number;
+    hasPhysical: boolean;
+    hasDigital: boolean;
+    city: string | null;
+    email: string;
+  };
+
+  const copy = (o: Order): [string, string] => {
+    switch (o.status) {
+      case 'paid':
+        return [
+          'Gracias, tu pago está confirmado',
+          [
+            o.hasDigital ? `Te enviamos los e-books a ${o.email}.` : '',
+            o.hasPhysical ? `Te escribimos por WhatsApp para coordinar la entrega en ${o.city}.` : '',
+          ].filter(Boolean).join(' '),
+        ];
+      case 'pending':
+      case 'processing':
+        return ['Estamos confirmando tu pago', 'Con PSE o Efecty puede tardar un poco. Esta página se actualiza sola; también te llegará un correo.'];
+      case 'failed':
+        return ['El pago no se completó', 'No se hizo ningún cobro. Puedes volver al carrito e intentarlo con otro medio de pago.'];
+      case 'canceled':
+        return ['El pago se canceló', 'El tiempo para pagar venció o se canceló el pago. No se hizo ningún cobro.'];
+      case 'refunded':
+        return ['Pedido reembolsado', 'El dinero vuelve por el mismo medio de pago.'];
+      default:
+        return ['Estamos revisando tu pedido', 'Te contactamos muy pronto para confirmarlo.'];
+    }
+  };
+
+  function show(o: Order) {
+    const [title, text] = copy(o);
+    $('[data-number]').textContent = `Pedido ${o.number}`;
+    $('[data-title]').textContent = title;
+    $('[data-text]').textContent = text;
+    const list = $('.order-lines');
+    list.replaceChildren(
+      ...o.items.map((i) => {
+        const li = document.createElement('li');
+        const left = document.createElement('span');
+        left.append(`${i.quantity} × ${i.name}`);
+        if (i.detail) left.append(Object.assign(document.createElement('span'), { className: 'detail', textContent: i.detail }));
+        li.append(left, Object.assign(document.createElement('span'), { className: 'price', textContent: cop.format(i.total) }));
+        return li;
+      }),
+    );
+    if (o.deliveryFee > 0) {
+      const li = document.createElement('li');
+      li.append(`Domicilio · ${o.city}`, Object.assign(document.createElement('span'), { className: 'price', textContent: cop.format(o.deliveryFee) }));
+      list.append(li);
+    }
+    list.hidden = false;
+    $('.order-total').hidden = false;
+    $('[data-total]').textContent = cop.format(o.total);
+    $('[data-help]').hidden = false;
+    const primary = $('[data-primary]') as HTMLAnchorElement;
+    primary.hidden = false;
+    if (o.status === 'failed' || o.status === 'canceled') {
+      primary.href = '/carrito';
+      primary.textContent = 'Volver al carrito';
+    }
+    if (o.status === 'paid') clearCart();
+  }
+
+  async function load(attempt = 0) {
+    if (!api || !id || !token) {
+      $('[data-title]').textContent = 'No encontramos tu pedido';
+      $('[data-text]').textContent = 'Abre el enlace completo que te llevó a esta página, o escríbenos.';
+      $('[data-help]').hidden = false;
+      return;
+    }
+    try {
+      const res = await fetch(`${api}/api/orders/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const order = (await res.json()) as Order;
+      show(order);
+      // Mientras el pago se confirma, se vuelve a consultar (hasta ~3 min).
+      if ((order.status === 'pending' || order.status === 'processing') && attempt < 36) setTimeout(() => load(attempt + 1), 5000);
+    } catch {
+      $('[data-title]').textContent = 'No pudimos consultar tu pedido';
+      $('[data-text]').textContent = 'Si ya pagaste, tranquilo: te llegará un correo de confirmación. Si no, escríbenos.';
+      $('[data-help]').hidden = false;
+    }
+  }
+  load();
+</script>

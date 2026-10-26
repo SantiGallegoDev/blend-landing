@@ -1,0 +1,104 @@
+---
+import { and, desc, eq, ilike, inArray, lt, or, type SQL } from 'drizzle-orm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db, schema } from '../../../db';
+import type { OrderStatus } from '../../../db/schema';
+import { requirePermission } from '../../../lib/guard';
+import { formatCOP, formatDate, fulfillmentLabel, orderStatusBadge, orderStatusLabel } from '../../../lib/format';
+import { paymentsConfigured } from '../../../lib/mercadopago';
+import { orderNumber } from '../../../lib/orders';
+
+const denied = requirePermission(Astro, 'pedidos');
+if (denied) return denied;
+
+const PAGE = 50;
+const q = Astro.url.searchParams;
+const view = q.get('vista') ?? 'activos';
+const search = (q.get('q') ?? '').trim().slice(0, 80);
+const before = Number(q.get('antes')) || null;
+
+// Vistas rápidas: lo que hay que atender primero.
+const views: Record<string, { label: string; where?: SQL }> = {
+  activos: {
+    label: 'Por despachar',
+    where: and(eq(schema.order.status, 'paid'), inArray(schema.order.fulfillment, ['pending', 'preparing', 'dispatched'])),
+  },
+  atencion: { label: 'Requieren atención', where: eq(schema.order.status, 'attention') },
+  pagados: { label: 'Pagados', where: eq(schema.order.status, 'paid') },
+  abiertos: { label: 'Sin pagar', where: inArray(schema.order.status, ['pending', 'processing'] as OrderStatus[]) },
+  todos: { label: 'Todos' },
+};
+const current = views[view] ?? views.activos;
+const number = Number(search.replace(/^BLD-/i, ''));
+const searchWhere = search
+  ? or(ilike(schema.order.customerName, `%${search}%`), ilike(schema.order.email, `%${search}%`), ilike(schema.order.phone, `%${search}%`), ...(Number.isInteger(number) && number > 0 ? [eq(schema.order.number, number)] : []))
+  : undefined;
+
+const rows = await db
+  .select()
+  .from(schema.order)
+  .where(and(current.where, searchWhere, before ? lt(schema.order.number, before) : undefined))
+  .orderBy(desc(schema.order.number))
+  .limit(PAGE + 1);
+const hasMore = rows.length > PAGE;
+const list = rows.slice(0, PAGE);
+const counts = Object.fromEntries(
+  await Promise.all(Object.entries(views).filter(([k]) => k !== 'todos').map(async ([k, v]) => [k, await db.$count(schema.order, v.where)] as const)),
+);
+---
+<AdminLayout title="Pedidos">
+  <div class="head">
+    <div>
+      <h1>Pedidos</h1>
+      {!paymentsConfigured() && <p class="small muted">Mercado Pago aún no está conectado: la web sigue recibiendo pedidos por WhatsApp.</p>}
+    </div>
+    <form method="get" class="search">
+      <input type="hidden" name="vista" value={view} />
+      <input type="search" name="q" value={search} placeholder="Buscar: BLD-1001, nombre, correo o teléfono" aria-label="Buscar pedidos" />
+    </form>
+  </div>
+
+  <nav class="tabs" aria-label="Vistas">
+    {Object.entries(views).map(([k, v]) => (
+      <a href={`?vista=${k}${search ? `&q=${encodeURIComponent(search)}` : ''}`} aria-current={k === view ? 'page' : undefined}>
+        {v.label}{k in counts && counts[k] > 0 && <span class="count">{counts[k]}</span>}
+      </a>
+    ))}
+  </nav>
+
+  <section class="card">
+    {list.length === 0 ? <p class="muted">No hay pedidos en esta vista.</p> : (
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Entrega</th><th>Fecha</th></tr></thead>
+          <tbody>
+            {list.map((o) => (
+              <tr class="link-row">
+                <td><a href={`/admin/pedidos/${o.id}`} class="mono">{orderNumber(o.number)}</a></td>
+                <td><div>{o.customerName}</div><div class="small muted">{o.hasPhysical ? o.city : 'Solo digital'}</div></td>
+                <td>{formatCOP(o.total)}</td>
+                <td><span class:list={['badge', orderStatusBadge[o.status]]}>{orderStatusLabel[o.status]}</span></td>
+                <td class="small">{fulfillmentLabel[o.fulfillment]}</td>
+                <td class="small muted nowrap">{formatDate(o.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+    {hasMore && <p class="more"><a class="btn btn-sm" href={`?vista=${view}&q=${encodeURIComponent(search)}&antes=${list.at(-1)!.number}`}>Ver anteriores</a></p>}
+  </section>
+</AdminLayout>
+
+<style>
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+  .search input { width: 340px; max-width: 100%; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs a { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; color: var(--ink-2); font-size: 14px; display: inline-flex; gap: 8px; align-items: center; }
+  .tabs a[aria-current='page'] { background: var(--ink); color: var(--warm); border-color: var(--ink); }
+  .count { font-size: 12px; background: var(--warn-bg); color: var(--warn); border-radius: 999px; padding: 0 7px; }
+  .tabs a[aria-current='page'] .count { background: var(--warm); color: var(--ink); }
+  .link-row a { font-weight: 500; }
+  .nowrap { white-space: nowrap; }
+  .more { margin-top: 16px; }
+</style>

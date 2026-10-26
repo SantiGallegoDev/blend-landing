@@ -1,0 +1,105 @@
+---
+import { asc, eq } from 'drizzle-orm';
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { db, schema } from '../../../../db';
+import { requirePermission } from '../../../../lib/guard';
+import { formatCOP } from '../../../../lib/format';
+
+const denied = requirePermission(Astro, 'productos');
+if (denied) return denied;
+
+const b = await db.query.bundle.findFirst({ where: eq(schema.bundle.id, Astro.params.id ?? '') });
+if (!b) return new Response('No encontrado', { status: 404 });
+const chosen = new Set((await db.select().from(schema.bundleVariant).where(eq(schema.bundleVariant.bundleId, b.id))).map((r) => r.variantId));
+const options = await db
+  .select({ id: schema.variant.id, name: schema.variant.name, price: schema.variant.price, product: schema.product.name, status: schema.product.status })
+  .from(schema.variant)
+  .innerJoin(schema.product, eq(schema.variant.productId, schema.product.id))
+  .where(eq(schema.product.type, 'drink'))
+  .orderBy(asc(schema.product.sortOrder), asc(schema.variant.sortOrder));
+---
+<AdminLayout title={b.name}>
+  <div>
+    <a href="/admin/productos" class="small muted">← Productos</a>
+    <h1>{b.name}</h1>
+  </div>
+  <form id="bundle" class="card stack narrow" data-id={b.id} novalidate>
+    <div class="two">
+      <label class="field"><span>Nombre</span><input name="name" value={b.name} maxlength="80" required /></label>
+      <label class="field"><span>Slug</span><input name="slug" value={b.slug} maxlength="60" required /></label>
+    </div>
+    <label class="field"><span>Descripción</span><textarea name="description" rows="2" maxlength="500">{b.description}</textarea></label>
+    <div class="three">
+      <label class="field"><span>Unidades por caja</span><input type="number" name="size" value={b.size} min="2" max="48" /></label>
+      <label class="field"><span>Precio de la caja (COP)</span><input type="number" name="price" value={b.price} min="1" step="100" /></label>
+      <label class="field"><span>Orden</span><input type="number" name="sortOrder" value={b.sortOrder} min="0" /></label>
+    </div>
+    <p class="small muted" id="per-unit"></p>
+    <fieldset class="stack-sm">
+      <legend class="label">Sabores que se pueden elegir</legend>
+      {options.map((o) => (
+        <label class="check">
+          <input type="checkbox" name="variantIds" value={o.id} checked={chosen.has(o.id)} />
+          {o.product} · {o.name} <span class="muted small">({formatCOP(o.price)} suelta{o.status !== 'active' ? ', producto sin publicar' : ''})</span>
+        </label>
+      ))}
+    </fieldset>
+    <label class="check"><input type="checkbox" name="active" checked={b.active} /> Activo (se puede comprar en la web)</label>
+    <p class="alert alert-bad small" id="error" role="alert" hidden></p>
+    <p class="alert alert-ok small" id="ok" role="status" hidden></p>
+    <button class="btn btn-solid">Guardar</button>
+  </form>
+</AdminLayout>
+
+<style>
+  .narrow { max-width: 760px; }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .three { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 0; }
+  .stack-sm { display: grid; gap: 8px; }
+  .label { font-size: 13px; font-weight: 500; padding: 0 4px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .check input { width: auto; }
+</style>
+
+<script>
+  import { actions, isInputError } from 'astro:actions';
+
+  const form = document.getElementById('bundle') as HTMLFormElement;
+  const errorBox = document.getElementById('error')!;
+  const okBox = document.getElementById('ok')!;
+  const perUnit = document.getElementById('per-unit')!;
+  const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
+  const showPerUnit = () => {
+    const size = Number(field('size').value);
+    const price = Number(field('price').value);
+    perUnit.textContent = size > 0 && price > 0 ? `Equivale a ${cop.format(Math.round(price / size))} por unidad.` : '';
+  };
+  form.addEventListener('input', showPerUnit);
+  showPerUnit();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBox.hidden = okBox.hidden = true;
+    const data = new FormData(form);
+    const { error } = await actions.catalog.saveBundle({
+      id: form.dataset.id!,
+      name: String(data.get('name')),
+      slug: String(data.get('slug')),
+      description: String(data.get('description')),
+      size: Number(data.get('size')),
+      price: Number(data.get('price')),
+      sortOrder: Number(data.get('sortOrder')),
+      active: data.get('active') === 'on',
+      variantIds: data.getAll('variantIds').map(String),
+    });
+    if (error) {
+      errorBox.textContent = isInputError(error) ? error.issues.map((i) => i.message).join(' · ') : error.message;
+      errorBox.hidden = false;
+      return;
+    }
+    okBox.textContent = 'Guardado.';
+    okBox.hidden = false;
+  });
+</script>

@@ -1,0 +1,61 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getDelivery, QUINDIO } from '../../lib/delivery';
+import { requirePermission } from '../../lib/guard';
+import { formatCOP } from '../../lib/format';
+
+const denied = requirePermission(Astro, 'productos');
+if (denied) return denied;
+
+const result = Astro.getActionResult(actions.catalog.saveDelivery);
+const delivery = await getDelivery();
+const errorMsg = result?.error && (isInputError(result.error) ? result.error.issues.map((i) => i.message).join(' · ') : result.error.message);
+const saved = result && !result.error;
+---
+<AdminLayout title="Entregas">
+  <div>
+    <h1>Domicilio</h1>
+    <p class="muted">Una tarifa fija para cualquier entrega en el Quindío. Los e-books no llevan domicilio.</p>
+  </div>
+  {errorMsg && <p class="alert alert-bad">{errorMsg}</p>}
+  {saved && <p class="alert alert-ok">Guardado. Usa “Publicar en la web” para que la web lo muestre.</p>}
+  {delivery.fee === null && <p class="alert alert-warn">El domicilio no tiene precio todavía: hasta que lo pongas, las bebidas no se pueden pagar en línea.</p>}
+
+  <form method="post" action={actions.catalog.saveDelivery} class="card stack narrow">
+    <label class="field fee">
+      <span>Valor del domicilio (COP)</span>
+      <input type="number" name="fee" value={delivery.fee ?? ''} min="0" step="500" required placeholder="Ej. 5000" />
+      <small class="muted">0 = domicilio gratis.{delivery.fee !== null && ` Hoy: ${delivery.fee === 0 ? 'gratis' : formatCOP(delivery.fee)}.`}</small>
+    </label>
+
+    <fieldset>
+      <legend class="label">Municipios del Quindío donde entregas</legend>
+      <div class="cities">
+        {QUINDIO.map((c) => (
+          <label class="check">
+            <input type="checkbox" name="cities" value={c} checked={delivery.cities.includes(c)} /> {c}
+          </label>
+        ))}
+      </div>
+      <p class="small muted">Quien compra solo puede elegir entre los marcados. No se aceptan direcciones fuera del Quindío.</p>
+    </fieldset>
+
+    <label class="field">
+      <span>Nota para el cliente (opcional)</span>
+      <input name="note" value={delivery.note} maxlength="200" placeholder="Ej. Entregamos el mismo día en Armenia; otros municipios al día siguiente." />
+    </label>
+
+    <button class="btn btn-solid">Guardar</button>
+  </form>
+</AdminLayout>
+
+<style>
+  .narrow { max-width: 720px; }
+  .fee input { max-width: 220px; }
+  fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px 16px; margin: 0; display: grid; gap: 12px; }
+  .label { font-size: 13px; font-weight: 500; padding: 0 4px; }
+  .cities { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .check input { width: auto; }
+</style>

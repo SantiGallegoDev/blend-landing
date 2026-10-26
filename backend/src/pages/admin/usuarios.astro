@@ -1,0 +1,140 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import { and, desc, gt, isNull } from 'drizzle-orm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db, schema } from '../../db';
+import { roles } from '../../db/schema';
+import { requirePermission } from '../../lib/guard';
+import { formatDate, roleLabel } from '../../lib/format';
+
+const denied = requirePermission(Astro, 'usuarios');
+if (denied) return denied;
+
+const me = Astro.locals.user!;
+const inviteResult = Astro.getActionResult(actions.invite);
+const otherResults = [actions.revokeInvite, actions.changeRole, actions.setDisabled].map((a) => Astro.getActionResult(a));
+const otherError = otherResults.find((r) => r?.error)?.error?.message;
+
+const users = await db.query.user.findMany({ orderBy: [desc(schema.user.createdAt)] });
+const passkeys = await db.select({ userId: schema.passkey.userId }).from(schema.passkey);
+const withPasskey = new Set(passkeys.map((p) => p.userId));
+const pending = await db.query.invitation.findMany({
+  where: and(isNull(schema.invitation.acceptedAt), isNull(schema.invitation.revokedAt), gt(schema.invitation.expiresAt, new Date())),
+  orderBy: [desc(schema.invitation.createdAt)],
+});
+const inviteFieldErrors = inviteResult?.error && isInputError(inviteResult.error) ? inviteResult.error.fields : {};
+---
+<AdminLayout title="Usuarios">
+  <h1>Usuarios</h1>
+
+  {otherError && <p class="alert alert-bad" role="alert">{otherError}</p>}
+
+  <section class="card stack">
+    <div>
+      <h2>Invitar</h2>
+      <p class="small muted">Llega un enlace al correo que vence en 24 horas. Nadie puede registrarse sin invitación.</p>
+    </div>
+    {inviteResult?.data && <p class="alert alert-ok">Invitación enviada a {inviteResult.data.email}.</p>}
+    {inviteResult?.error && !isInputError(inviteResult.error) && <p class="alert alert-bad">{inviteResult.error.message}</p>}
+    <form method="post" action={actions.invite} class="invite">
+      <label class="field">
+        <span>Correo</span>
+        <input type="email" name="email" required />
+        {inviteFieldErrors.email && <small class="err">{inviteFieldErrors.email[0]}</small>}
+      </label>
+      <label class="field">
+        <span>Rol</span>
+        <select name="role">
+          {roles.map((r) => <option value={r} selected={r === 'operador'}>{roleLabel[r]}</option>)}
+        </select>
+      </label>
+      <button type="submit" class="btn btn-solid">Enviar invitación</button>
+    </form>
+    <p class="small muted">
+      <strong>Owner</strong>: todo, incluidos usuarios.{' '}
+      <strong>Admin</strong>: productos, pedidos e inventario.{' '}
+      <strong>Operador</strong>: pedidos y entregas.
+    </p>
+  </section>
+
+  {pending.length > 0 && (
+    <section class="card stack">
+      <h2>Invitaciones pendientes</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Correo</th><th>Rol</th><th>Vence</th><th></th></tr></thead>
+          <tbody>
+            {pending.map((inv) => (
+              <tr>
+                <td>{inv.email}</td>
+                <td>{roleLabel[inv.role]}</td>
+                <td>{formatDate(inv.expiresAt)}</td>
+                <td class="end">
+                  <form method="post" action={actions.revokeInvite}>
+                    <input type="hidden" name="id" value={inv.id} />
+                    <button class="btn btn-sm btn-danger">Revocar</button>
+                  </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+
+  <section class="card stack">
+    <h2>Cuentas</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nombre</th><th>Rol</th><th>Seguridad</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          {users.map((u) => {
+            const self = u.id === me.id;
+            return (
+              <tr>
+                <td>
+                  <div>{u.name}{self && <span class="muted small"> (tú)</span>}</div>
+                  <div class="small muted">{u.email}</div>
+                </td>
+                <td>
+                  {self ? roleLabel[u.role] : (
+                    <form method="post" action={actions.changeRole} class="row">
+                      <input type="hidden" name="userId" value={u.id} />
+                      <select name="role" aria-label={`Rol de ${u.name}`}>
+                        {roles.map((r) => <option value={r} selected={r === u.role}>{roleLabel[r]}</option>)}
+                      </select>
+                      <button class="btn btn-sm">Guardar</button>
+                    </form>
+                  )}
+                </td>
+                <td class="small">
+                  <span class:list={['badge', u.twoFactorEnabled ? 'badge-ok' : 'badge-warn']}>{u.twoFactorEnabled ? '2FA' : 'Sin 2FA'}</span>
+                  {withPasskey.has(u.id) && <span class="badge badge-ok">Passkey</span>}
+                </td>
+                <td>{u.disabled ? <span class="badge badge-bad">Desactivada</span> : <span class="badge">Activa</span>}</td>
+                <td class="end">
+                  {!self && (
+                    <form method="post" action={actions.setDisabled}>
+                      <input type="hidden" name="userId" value={u.id} />
+                      <input type="hidden" name="disabled" value={u.disabled ? 'false' : 'true'} />
+                      <button class:list={['btn', 'btn-sm', !u.disabled && 'btn-danger']}>{u.disabled ? 'Reactivar' : 'Desactivar'}</button>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</AdminLayout>
+
+<style>
+  .invite { display: grid; gap: 12px; grid-template-columns: 1fr; align-items: end; }
+  @media (min-width: 720px) { .invite { grid-template-columns: 2fr 1fr auto; } }
+  .end { text-align: right; }
+  .err { color: var(--bad); }
+  select { width: auto; }
+</style>

@@ -1,0 +1,176 @@
+---
+import { actions } from 'astro:actions';
+import { desc, eq } from 'drizzle-orm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db, schema } from '../../db';
+import { auth } from '../../lib/auth';
+import { formatDate, roleLabel } from '../../lib/format';
+
+const me = Astro.locals.user!;
+const current = Astro.locals.session!;
+const revoked = Astro.getActionResult(actions.revokeSession);
+
+const sessions = (await auth.api.listSessions({ headers: Astro.request.headers }))
+  .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+const passkeys = await db.query.passkey.findMany({
+  where: eq(schema.passkey.userId, me.id),
+  orderBy: [desc(schema.passkey.createdAt)],
+});
+
+// Nombre legible a partir del user agent, sin librerías.
+function device(ua?: string | null) {
+  if (!ua) return 'Dispositivo desconocido';
+  const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Otro';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+  return `${browser} en ${os}`;
+}
+---
+<AdminLayout title="Mi cuenta">
+  <div>
+    <h1>Mi cuenta</h1>
+    <p class="muted">{me.name} · {me.email} · {roleLabel[me.role]}</p>
+  </div>
+  <p class="alert alert-bad" id="error" role="alert" hidden></p>
+  <p class="alert alert-ok" id="ok" role="status" hidden></p>
+
+  <section class="card stack">
+    <div>
+      <h2>Passkeys</h2>
+      <p class="small muted">Entra con la huella, el rostro o el PIN del dispositivo, sin contraseña ni código. Funcionan solo en este sitio, así que no se pueden usar en una página falsa.</p>
+    </div>
+    {passkeys.length > 0 ? (
+      <ul class="list">
+        {passkeys.map((p) => (
+          <li>
+            <div>
+              <div>{p.name || 'Passkey'}</div>
+              <div class="small muted">Creada {formatDate(p.createdAt)}{p.backedUp ? ' · sincronizada' : ''}</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-danger" data-delete-passkey={p.id}>Eliminar</button>
+          </li>
+        ))}
+      </ul>
+    ) : <p class="small">Aún no tienes passkeys.</p>}
+    <form id="add-passkey" class="row">
+      <input name="name" placeholder="Nombre (ej. Portátil, iPhone)" maxlength="40" aria-label="Nombre de la passkey" />
+      <button type="submit" class="btn btn-solid">Agregar passkey</button>
+    </form>
+    <p class="small muted">Por seguridad, si entraste hace más de 10 minutos te pediremos volver a iniciar sesión antes de agregarla.</p>
+  </section>
+
+  <section class="card stack">
+    <div>
+      <h2>Sesiones abiertas</h2>
+      <p class="small muted">Cada sesión se cierra sola tras 30 minutos sin actividad y nunca dura más de 12 horas.</p>
+    </div>
+    {revoked?.error && <p class="alert alert-bad">{revoked.error.message}</p>}
+    <ul class="list">
+      {sessions.map((s) => (
+        <li>
+          <div>
+            <div>{device(s.userAgent)}{s.id === current.id && <span class="badge badge-ok">Esta sesión</span>}</div>
+            <div class="small muted">IP {s.ipAddress || '—'} · iniciada {formatDate(s.createdAt)}</div>
+          </div>
+          {s.id !== current.id && (
+            <form method="post" action={actions.revokeSession}>
+              <input type="hidden" name="id" value={s.id} />
+              <button class="btn btn-sm btn-danger">Cerrar</button>
+            </form>
+          )}
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="card stack">
+    <h2>Cambiar contraseña</h2>
+    <form id="change-password" class="stack narrow">
+      <label class="field"><span>Contraseña actual</span><input type="password" name="current" autocomplete="current-password" required /></label>
+      <label class="field"><span>Nueva contraseña (mínimo 12 caracteres)</span><input type="password" name="next" autocomplete="new-password" minlength="12" maxlength="128" required /></label>
+      <label class="field"><span>Repite la nueva contraseña</span><input type="password" name="confirm" autocomplete="new-password" required /></label>
+      <button type="submit" class="btn btn-solid">Cambiar y cerrar las demás sesiones</button>
+    </form>
+  </section>
+
+  <section class="card stack">
+    <div>
+      <h2>Códigos de respaldo</h2>
+      <p class="small muted">Generar códigos nuevos anula los anteriores.</p>
+    </div>
+    <form id="backup-codes" class="row">
+      <input type="password" name="password" placeholder="Tu contraseña" autocomplete="current-password" required aria-label="Tu contraseña" />
+      <button type="submit" class="btn">Generar códigos nuevos</button>
+    </form>
+    <ol id="codes" class="codes mono" hidden></ol>
+  </section>
+</AdminLayout>
+
+<style>
+  .list { list-style: none; margin: 0; padding: 0; display: grid; }
+  .list li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .list .badge { margin-left: 8px; }
+  .narrow { max-width: 420px; }
+  .row input { flex: 1; min-width: 200px; }
+  .codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; margin: 0; padding: 12px 12px 12px 32px; background: var(--cream); border-radius: 10px; max-width: 420px; }
+</style>
+
+<script>
+  import { authClient, errorMessage } from '../../lib/auth-client';
+
+  const errorBox = document.getElementById('error')!;
+  const okBox = document.getElementById('ok')!;
+  const say = (box: HTMLElement, msg: string | null) => {
+    errorBox.hidden = okBox.hidden = true;
+    if (msg) { box.textContent = msg; box.hidden = false; box.scrollIntoView({ block: 'nearest' }); }
+  };
+
+  document.getElementById('add-passkey')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = String(new FormData(e.currentTarget as HTMLFormElement).get('name') || '').trim() || undefined;
+    const { error } = await authClient.passkey.addPasskey({ name });
+    if (error) {
+      if (error.status === 403) {
+        location.assign('/admin/login?next=/admin/cuenta');
+        return;
+      }
+      return say(errorBox, 'No se pudo crear la passkey. ' + errorMessage(error));
+    }
+    location.reload();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-passkey]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar esta passkey?')) return;
+      const { error } = await authClient.passkey.deletePasskey({ id: btn.dataset.deletePasskey! });
+      if (error) return say(errorBox, errorMessage(error));
+      location.reload();
+    });
+  });
+
+  document.getElementById('change-password')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const data = new FormData(form);
+    if (data.get('next') !== data.get('confirm')) return say(errorBox, 'Las contraseñas nuevas no coinciden.');
+    const { error } = await authClient.changePassword({
+      currentPassword: String(data.get('current')),
+      newPassword: String(data.get('next')),
+      revokeOtherSessions: true,
+    });
+    if (error) return say(errorBox, errorMessage(error));
+    form.reset();
+    say(okBox, 'Contraseña cambiada. Se cerraron las demás sesiones.');
+  });
+
+  document.getElementById('backup-codes')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const { data, error } = await authClient.twoFactor.generateBackupCodes({ password: String(new FormData(form).get('password')) });
+    if (error || !data) return say(errorBox, errorMessage(error));
+    form.reset();
+    const list = document.getElementById('codes')!;
+    list.replaceChildren(...data.backupCodes.map((c) => Object.assign(document.createElement('li'), { textContent: c })));
+    list.hidden = false;
+    say(okBox, 'Códigos nuevos generados. Guárdalos: no los volverás a ver.');
+  });
+</script>

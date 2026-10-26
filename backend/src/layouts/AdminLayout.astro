@@ -1,0 +1,124 @@
+---
+import '../styles/admin.css';
+import logo from '../assets/logo-blend.svg';
+import { can } from '../lib/guard';
+import { publishState } from '../lib/publish';
+
+interface Props {
+  title: string;
+  // Pantallas sin menú: login, activación de 2FA, invitación.
+  bare?: boolean;
+}
+
+const { title, bare = false } = Astro.props;
+const user = Astro.locals.user;
+const path = Astro.url.pathname.replace(/\/$/, '');
+
+const nav = [
+  { href: '/admin', label: 'Inicio', show: true },
+  { href: '/admin/pedidos', label: 'Pedidos', show: can(user?.role, 'pedidos') },
+  { href: '/admin/productos', label: 'Productos', show: can(user?.role, 'productos') },
+  { href: '/admin/inventario', label: 'Inventario', show: can(user?.role, 'inventario') },
+  { href: '/admin/entregas', label: 'Domicilio', show: can(user?.role, 'productos') },
+  { href: '/admin/usuarios', label: 'Usuarios', show: can(user?.role, 'usuarios') },
+  { href: '/admin/actividad', label: 'Actividad', show: can(user?.role, 'actividad') },
+  { href: '/admin/cuenta', label: 'Mi cuenta', show: true },
+].filter((item) => item.show);
+const isCurrent = (href: string) => (href === '/admin' ? path === href : path === href || path.startsWith(href + '/'));
+const msg = Astro.url.searchParams.get('msg');
+const flash = msg ? { ok: Astro.url.searchParams.get('publicado') === '1', message: msg.slice(0, 200) } : null;
+const publish = !bare && can(user?.role, 'productos') ? await publishState() : null;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title} · Blend Admin</title>
+  </head>
+  <body class:list={[bare ? 'bare' : 'shell']}>
+    {bare ? (
+      <main class="bare-main">
+        <img src={logo.src} alt="Blend" width="96" height="30" class="bare-logo" />
+        <slot />
+      </main>
+    ) : (
+      <>
+        <header class="top">
+          <a href="/admin" class="brand"><img src={logo.src} alt="Blend" width="72" height="22" /><span>Admin</span></a>
+          <nav aria-label="Panel">
+            {nav.map((item) => (
+              <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
+            ))}
+          </nav>
+          {publish?.pending && (
+            <form method="post" action="/admin/publicar" class="publish" title="Hay cambios del catálogo que la web todavía no muestra">
+              <input type="hidden" name="back" value={path} />
+              <span class="dot" aria-hidden="true"></span>
+              <button type="submit" class="btn btn-sm btn-solid">Publicar en la web</button>
+            </form>
+          )}
+          <form method="post" action="/admin/salir" class="logout">
+            <span class="small muted">{user?.name}</span>
+            <button type="submit" class="btn btn-sm">Salir</button>
+          </form>
+        </header>
+        <main class="content">
+          {flash && <p class:list={['alert', flash.ok ? 'alert-ok' : 'alert-bad']} role="status">{flash.message}</p>}
+          <slot />
+        </main>
+      </>
+    )}
+  </body>
+</html>
+
+<style>
+  .bare-main {
+    min-height: 100dvh;
+    display: grid;
+    place-content: center;
+    gap: 24px;
+    padding: 32px 16px;
+    width: min(100%, 420px);
+    margin-inline: auto;
+  }
+  .bare-logo { height: 30px; width: auto; justify-self: center; }
+
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas: 'brand nav publish logout';
+    align-items: center;
+    gap: 12px 24px;
+    padding: 12px clamp(16px, 3vw, 32px);
+    background: var(--warm);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { grid-area: brand; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 500; }
+  .brand img { height: 22px; width: auto; }
+  .brand span { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); }
+  nav { grid-area: nav; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  nav a { padding: 6px 12px; border-radius: 999px; text-decoration: none; color: var(--ink-2); white-space: nowrap; }
+  nav a:hover { background: var(--cream); color: var(--ink); }
+  nav a[aria-current='page'] { background: var(--ink); color: var(--warm); }
+  .logout { grid-area: logout; display: flex; align-items: center; gap: 12px; }
+  .publish { grid-area: publish; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+  @media (max-width: 760px) {
+    .top { grid-template-columns: 1fr auto auto; grid-template-areas: 'brand publish logout' 'nav nav nav'; }
+    .logout span { display: none; }
+  }
+  .content {
+    width: min(100%, 1180px);
+    margin-inline: auto;
+    padding: 32px clamp(16px, 3vw, 32px) 64px;
+    display: grid;
+    gap: 24px;
+  }
+</style>

@@ -1,0 +1,111 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db, schema } from '../../db';
+import { requirePermission } from '../../lib/guard';
+import { formatDate } from '../../lib/format';
+import { reasonLabel } from '../../lib/inventory';
+
+const denied = requirePermission(Astro, 'inventario');
+if (denied) return denied;
+
+const result = Astro.getActionResult(actions.catalog.adjustStock);
+const rows = await db
+  .select({ v: schema.variant, product: schema.product.name, status: schema.product.status })
+  .from(schema.variant)
+  .innerJoin(schema.product, eq(schema.variant.productId, schema.product.id))
+  .where(and(eq(schema.variant.trackStock, true), inArray(schema.product.status, ['active', 'draft'])))
+  .orderBy(asc(schema.product.sortOrder), asc(schema.variant.sortOrder));
+
+// Unidades apartadas por checkouts que todavía no se pagan.
+const pending = await db.select({ lines: schema.order.stockLines }).from(schema.order).where(eq(schema.order.stockState, 'reserved'));
+const reserved = new Map<string, number>();
+for (const { lines } of pending) for (const l of lines) reserved.set(l.variantId, (reserved.get(l.variantId) ?? 0) + l.qty);
+
+const history = await db
+  .select({ m: schema.inventoryMovement, variant: schema.variant.name, product: schema.product.name, who: schema.user.name })
+  .from(schema.inventoryMovement)
+  .innerJoin(schema.variant, eq(schema.inventoryMovement.variantId, schema.variant.id))
+  .innerJoin(schema.product, eq(schema.variant.productId, schema.product.id))
+  .leftJoin(schema.user, eq(schema.inventoryMovement.userId, schema.user.id))
+  .orderBy(desc(schema.inventoryMovement.id))
+  .limit(40);
+const errorMsg = result?.error && (isInputError(result.error) ? result.error.issues.map((i) => i.message).join(' · ') : result.error.message);
+---
+<AdminLayout title="Inventario">
+  <div>
+    <h1>Inventario</h1>
+    <p class="muted">“Disponible” es lo que se puede vender ya. Lo apartado por pagos en curso se descuenta solo y vuelve si el pago no se completa.</p>
+  </div>
+  {errorMsg && <p class="alert alert-bad">{errorMsg}</p>}
+  {result?.data && <p class="alert alert-ok">Stock actualizado: quedan {result.data.stock} disponibles.</p>}
+
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Producto</th><th>Disponible</th><th>Apartado</th><th>Movimiento</th></tr></thead>
+        <tbody>
+          {rows.map(({ v, product, status }) => (
+            <tr>
+              <td>
+                <strong>{product}</strong> · {v.name}
+                {status === 'draft' && <span class="badge badge-warn">Borrador</span>}
+                {!v.active && <span class="badge">Inactiva</span>}
+              </td>
+              <td><span class:list={['badge', v.stock === 0 ? 'badge-bad' : v.stock <= v.lowStock ? 'badge-warn' : 'badge-ok']}>{v.stock}</span></td>
+              <td class="muted">{reserved.get(v.id) ?? 0}</td>
+              <td>
+                <form method="post" action={actions.catalog.adjustStock} class="adjust">
+                  <input type="hidden" name="variantId" value={v.id} />
+                  <select name="mode" aria-label="Tipo de movimiento">
+                    <option value="restock">+ Entrada</option>
+                    <option value="shrink">− Merma o salida</option>
+                    <option value="set">= Conteo físico</option>
+                  </select>
+                  <input type="number" name="quantity" min="0" required aria-label="Cantidad" placeholder="Cant." />
+                  <input name="note" maxlength="200" placeholder="Nota (opcional)" aria-label="Nota" />
+                  <button class="btn btn-sm">Aplicar</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card stack">
+    <h2>Últimos movimientos</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Movimiento</th><th>Cambio</th><th>Queda</th><th>Quién / nota</th></tr></thead>
+        <tbody>
+          {history.map(({ m, variant, product, who }) => (
+            <tr>
+              <td class="small nowrap">{formatDate(m.createdAt)}</td>
+              <td class="small">{product} · {variant}</td>
+              <td class="small">{reasonLabel[m.reason]}</td>
+              <td class:list={['mono', m.delta > 0 ? 'up' : 'down']}>{m.delta > 0 ? `+${m.delta}` : m.delta}</td>
+              <td class="mono">{m.stockAfter}</td>
+              <td class="small muted">{[who, m.note].filter(Boolean).join(' · ') || (m.orderId ? 'Pedido' : '—')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {history.length === 0 && <p class="muted small">Sin movimientos todavía.</p>}
+  </section>
+</AdminLayout>
+
+<style>
+  .adjust { display: flex; gap: 6px; flex-wrap: wrap; }
+  .adjust select { width: auto; }
+  .adjust input[type='number'] { width: 80px; }
+  .adjust input[name='note'] { width: 180px; }
+  .adjust > * { padding-block: 6px; }
+  td .badge { margin-left: 6px; }
+  .nowrap { white-space: nowrap; }
+  .up { color: var(--ok); }
+  .down { color: var(--bad); }
+</style>

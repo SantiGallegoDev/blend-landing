@@ -11,7 +11,7 @@ export default defineConfig({
   integrations: [
     sitemap({
       // Páginas internas o aún en borrador legal: fuera del sitemap.
-      filter: (page) => !/\/(brand|terminos|privacidad)\/?$/.test(page),
+      filter: (page) => !/\/(brand|terminos|privacidad|carrito|pedido)\/?$/.test(page),
     }),
   ],
 });

@@ -1,0 +1,512 @@
+---
+import { asc, eq } from 'drizzle-orm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db, schema } from '../../../db';
+import { imageRoles } from '../../../db/schema';
+import { requirePermission } from '../../../lib/guard';
+import { roleImageLabel } from '../../../lib/format';
+import { adminMediaUrl } from '../../../lib/media';
+
+const denied = requirePermission(Astro, 'productos');
+if (denied) return denied;
+
+const p = await db.query.product.findFirst({ where: eq(schema.product.id, Astro.params.id ?? '') });
+if (!p) return new Response('No encontrado', { status: 404 });
+const variants = await db.query.variant.findMany({ where: eq(schema.variant.productId, p.id), orderBy: [asc(schema.variant.sortOrder)] });
+const images = await db.query.productImage.findMany({ where: eq(schema.productImage.productId, p.id), orderBy: [asc(schema.productImage.sortOrder)] });
+
+const isDrink = p.type === 'drink';
+const roles = imageRoles.filter((r) => (isDrink ? !['cover', 'sample'].includes(r) : ['cover', 'sample', 'gallery'].includes(r)));
+const lines = (list: string[]) => list.join('\n');
+const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`);
+---
+<AdminLayout title={p.name}>
+  <div class="head">
+    <div>
+      <a href="/admin/productos" class="small muted">← Productos</a>
+      <h1>{p.name}</h1>
+      <p class="muted small">{isDrink ? 'Bebida' : 'E-book'} · /{isDrink ? 'bebidas' : 'digital'}/{p.slug}</p>
+    </div>
+  </div>
+
+  <form id="editor" class="grid" data-id={p.id} data-type={p.type} novalidate>
+    <div class="col">
+      <section class="card stack">
+        <h2>General</h2>
+        <div class="two">
+          <label class="field"><span>Nombre</span><input data-field="name" value={p.name} maxlength="80" required /></label>
+          <label class="field"><span>Slug (URL)</span><input data-field="slug" value={p.slug} maxlength="60" pattern="[a-z0-9-]+" required /></label>
+        </div>
+        <label class="field">
+          <span>Frase corta</span>
+          <input data-field="headline" value={p.headline} maxlength="160" placeholder={isDrink ? 'Ej. Siéntete ligero.' : 'Ej. Recetas para el día a día'} />
+        </label>
+        <label class="field">
+          <span>Descripción</span>
+          <textarea data-field="description" rows="4" maxlength="2000">{p.description}</textarea>
+        </label>
+        <label class="field">
+          <span>Descripción para Google <small class="muted" data-count="seoDescription"></small></span>
+          <textarea data-field="seoDescription" rows="2" maxlength="320">{p.seoDescription}</textarea>
+        </label>
+      </section>
+
+      {isDrink ? (
+        <section class="card stack">
+          <h2>Bebida</h2>
+          <div class="three">
+            <label class="field">
+              <span>Línea</span>
+              <select data-field="line">
+                <option value="flow" selected={p.line === 'flow'}>Flow</option>
+                <option value="cold-coffee" selected={p.line === 'cold-coffee'}>Cold Coffee</option>
+              </select>
+            </label>
+            <label class="field"><span>Volumen</span><input data-field="volume" value={p.volume ?? ''} maxlength="40" placeholder="330 ml" /></label>
+            <label class="field">
+              <span>Color del sabor</span>
+              <span class="color"><input type="color" data-color-for="flavorColor" value={p.flavorColor ?? '#CBA781'} aria-label="Elegir color" /><input data-field="flavorColor" value={p.flavorColor ?? ''} maxlength="7" placeholder="#RRGGBB" /></span>
+            </label>
+          </div>
+          <div class="three">
+            <label class="field"><span>Ingredientes <small class="muted">uno por línea</small></span><textarea data-field="ingredients" data-lines rows="5">{lines(p.ingredients)}</textarea></label>
+            <label class="field"><span>Extras <small class="muted">uno por línea</small></span><textarea data-field="extras" data-lines rows="5">{lines(p.extras)}</textarea></label>
+            <label class="field"><span>Sellos de la etiqueta <small class="muted">uno por línea</small></span><textarea data-field="badges" data-lines rows="5">{lines(p.badges)}</textarea></label>
+          </div>
+          <label class="check"><input type="checkbox" data-field="provisionalImages" checked={p.provisionalImages} /> Fotos provisionales (tienen errores de etiqueta y hay que reemplazarlas)</label>
+        </section>
+      ) : (
+        <section class="card stack">
+          <h2>E-book</h2>
+          <label class="field"><span>Subtítulo</span><input data-field="subtitle" value={p.subtitle ?? ''} maxlength="200" /></label>
+          <div class="three">
+            <label class="field"><span>Páginas</span><input type="number" data-field="pages" value={p.pages ?? ''} min="1" max="5000" /></label>
+            <label class="field"><span>Formato</span><input data-field="format" value={p.format ?? 'PDF'} maxlength="40" /></label>
+            <div class="field">
+              <span>Colores de la portada tipográfica</span>
+              <span class="color">
+                <input type="color" data-color-for="coverColor" value={p.coverColor ?? '#C5D1B0'} aria-label="Fondo" />
+                <input data-field="coverColor" value={p.coverColor ?? ''} maxlength="7" aria-label="Color de fondo" />
+                <input type="color" data-color-for="coverInk" value={p.coverInk ?? '#3F4B37'} aria-label="Tinta" />
+                <input data-field="coverInk" value={p.coverInk ?? ''} maxlength="7" aria-label="Color de tinta" />
+              </span>
+            </div>
+          </div>
+          <label class="field"><span>Resumen</span><textarea data-field="summary" rows="3" maxlength="2000">{p.summary ?? ''}</textarea></label>
+          <div class="two">
+            <label class="field"><span>Qué incluye <small class="muted">uno por línea</small></span><textarea data-field="includes" data-lines rows="6">{lines(p.includes)}</textarea></label>
+            <label class="field"><span>Índice <small class="muted">un capítulo por línea</small></span><textarea data-field="toc" data-lines rows="6">{lines(p.toc)}</textarea></label>
+          </div>
+          <div class="stack">
+            <span class="label">Preguntas frecuentes</span>
+            <div id="faq" class="stack">
+              {p.faq.map((f) => (
+                <div class="faq" data-faq>
+                  <input data-k="q" value={f.q} placeholder="Pregunta" maxlength="200" aria-label="Pregunta" />
+                  <textarea data-k="a" rows="2" placeholder="Respuesta" maxlength="1500" aria-label="Respuesta">{f.a}</textarea>
+                  <button type="button" class="btn btn-sm btn-danger" data-remove>Quitar</button>
+                </div>
+              ))}
+            </div>
+            <button type="button" class="btn btn-sm" id="add-faq">Agregar pregunta</button>
+          </div>
+        </section>
+      )}
+
+      <section class="card stack">
+        <div class="row between">
+          <h2>Variantes y precios</h2>
+          <button type="button" class="btn btn-sm" id="add-variant">Agregar variante</button>
+        </div>
+        <p class="small muted">
+          {isDrink
+            ? 'Cada formato que se vende por separado (lata, litro…) con su precio y su stock. El six pack se configura en Combos.'
+            : 'Normalmente una sola variante (PDF). Puedes crear otras, por ejemplo una edición con extras.'}
+        </p>
+        <div class="table-wrap">
+          <table class="variants">
+            <thead>
+              <tr>
+                <th>Nombre</th><th>SKU</th><th>Precio (COP)</th>
+                {isDrink && <th>Stock</th>}
+                {isDrink && <th>Alerta</th>}
+                <th>Activa</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="variants">
+              {variants.map((v) => (
+                <tr data-variant data-id={v.id} data-stock-seen={v.stock}>
+                  <td><input data-k="name" value={v.name} maxlength="80" aria-label="Nombre de la variante" /></td>
+                  <td><input data-k="sku" value={v.sku ?? ''} maxlength="40" aria-label="SKU" /></td>
+                  <td><input data-k="price" type="number" value={v.price} min="1" step="100" aria-label="Precio" /></td>
+                  {isDrink && <td><input data-k="stock" type="number" value={v.stock} min="0" aria-label="Stock" /></td>}
+                  {isDrink && <td><input data-k="lowStock" type="number" value={v.lowStock} min="0" aria-label="Alerta de stock bajo" /></td>}
+                  <td class="center"><input data-k="active" type="checkbox" checked={v.active} aria-label="Activa" /></td>
+                  <td><button type="button" class="btn btn-sm btn-danger" data-remove aria-label="Quitar variante">×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {isDrink && <p class="small muted">El stock que cambies aquí queda registrado como ajuste en Inventario.</p>}
+      </section>
+
+      <section class="card stack">
+        <div class="row between">
+          <h2>Fotos</h2>
+          <label class="btn btn-sm">
+            Subir fotos
+            <input type="file" id="upload-images" accept="image/jpeg,image/png,image/webp,image/avif" multiple hidden />
+          </label>
+        </div>
+        <p class="small muted">
+          Haz clic sobre la foto para elegir el punto que nunca se recorta. JPG, PNG, WebP o AVIF hasta 20 MB.
+          {isDrink ? ' "Tarjeta" se usa en el catálogo; "Portada de ficha" arriba de la ficha.' : ' "Portada del e-book" reemplaza la portada tipográfica.'}
+        </p>
+        <p class="small muted" id="upload-status" hidden></p>
+        <div id="images" class="images">
+          {images.map((img) => (
+            <div class="img" data-image data-id={img.id}>
+              <div class="pick" data-pick>
+                <img src={adminMediaUrl(img.key)} alt="" width={img.width} height={img.height} loading="lazy" />
+                <span class="pin" data-pin data-focus={img.focus}></span>
+              </div>
+              <div class="stack-sm">
+                <select data-k="role" aria-label="Uso de la foto">
+                  {roles.map((r) => <option value={r} selected={r === img.role}>{roleImageLabel[r]}</option>)}
+                </select>
+                <input data-k="alt" value={img.alt} maxlength="240" placeholder="Descripción (para accesibilidad y Google)" aria-label="Texto alternativo" />
+                <div class="row small">
+                  <select data-k="fit" aria-label="Ajuste">
+                    <option value="cover" selected={img.fit === 'cover'}>Llenar</option>
+                    <option value="contain" selected={img.fit === 'contain'}>Sin fondo (no recortar)</option>
+                  </select>
+                  <span class="muted" data-focus-label>{img.focus}</span>
+                </div>
+                <div class="row">
+                  <button type="button" class="btn btn-sm" data-move="-1" aria-label="Mover antes">↑</button>
+                  <button type="button" class="btn btn-sm" data-move="1" aria-label="Mover después">↓</button>
+                  <button type="button" class="btn btn-sm btn-danger" data-remove>Quitar</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+
+    <aside class="col side">
+      <section class="card stack">
+        <h2>Publicación</h2>
+        <label class="field">
+          <span>Estado</span>
+          <select data-field="status">
+            <option value="draft" selected={p.status === 'draft'}>Borrador (no sale en la web)</option>
+            <option value="active" selected={p.status === 'active'}>Publicado</option>
+            <option value="archived" selected={p.status === 'archived'}>Archivado</option>
+          </select>
+        </label>
+        <label class="field"><span>Orden en el catálogo</span><input type="number" data-field="sortOrder" value={p.sortOrder} min="0" max="9999" /></label>
+      </section>
+
+      {!isDrink && (
+        <section class="card stack">
+          <h2>Archivo del e-book</h2>
+          <p class="small" id="file-info">
+            {p.fileKey ? <>
+              <strong>{p.fileName}</strong><br /><span class="muted">{kb(p.fileSize ?? 0)}</span> · <a href={`/admin/api/productos/${p.id}/archivo`}>Descargar</a>
+            </> : <span class="muted">Todavía no hay PDF. Es privado: solo se descarga con el enlace que recibe quien compra.</span>}
+          </p>
+          <label class="btn btn-sm">
+            {p.fileKey ? 'Reemplazar PDF' : 'Subir PDF'}
+            <input type="file" id="upload-pdf" accept="application/pdf" hidden />
+          </label>
+          <progress id="pdf-progress" max="100" value="0" hidden></progress>
+        </section>
+      )}
+
+      <div class="savebar">
+        <p class="alert alert-bad small" id="error" role="alert" hidden></p>
+        <p class="alert alert-ok small" id="ok" role="status" hidden></p>
+        <button type="submit" class="btn btn-solid" id="save">Guardar cambios</button>
+        <p class="small muted">Para que la web lo muestre, después usa “Publicar en la web”.</p>
+      </div>
+    </aside>
+  </form>
+
+  <template id="variant-row">
+    <tr data-variant data-stock-seen="0">
+      <td><input data-k="name" maxlength="80" placeholder="Ej. 1 litro" aria-label="Nombre de la variante" /></td>
+      <td><input data-k="sku" maxlength="40" aria-label="SKU" /></td>
+      <td><input data-k="price" type="number" min="1" step="100" aria-label="Precio" /></td>
+      {isDrink && <td><input data-k="stock" type="number" value="0" min="0" aria-label="Stock" /></td>}
+      {isDrink && <td><input data-k="lowStock" type="number" value="5" min="0" aria-label="Alerta de stock bajo" /></td>}
+      <td class="center"><input data-k="active" type="checkbox" checked aria-label="Activa" /></td>
+      <td><button type="button" class="btn btn-sm btn-danger" data-remove aria-label="Quitar variante">×</button></td>
+    </tr>
+  </template>
+  <template id="faq-row">
+    <div class="faq" data-faq>
+      <input data-k="q" placeholder="Pregunta" maxlength="200" aria-label="Pregunta" />
+      <textarea data-k="a" rows="2" placeholder="Respuesta" maxlength="1500" aria-label="Respuesta"></textarea>
+      <button type="button" class="btn btn-sm btn-danger" data-remove>Quitar</button>
+    </div>
+  </template>
+  <template id="image-card">
+    <div class="img" data-image>
+      <div class="pick" data-pick><img alt="" loading="lazy" /><span class="pin" data-pin data-focus="50% 50%"></span></div>
+      <div class="stack-sm">
+        <select data-k="role" aria-label="Uso de la foto">
+          {roles.map((r) => <option value={r}>{roleImageLabel[r]}</option>)}
+        </select>
+        <input data-k="alt" maxlength="240" placeholder="Descripción (para accesibilidad y Google)" aria-label="Texto alternativo" />
+        <div class="row small">
+          <select data-k="fit" aria-label="Ajuste"><option value="cover">Llenar</option><option value="contain">Sin fondo (no recortar)</option></select>
+          <span class="muted" data-focus-label>50% 50%</span>
+        </div>
+        <div class="row">
+          <button type="button" class="btn btn-sm" data-move="-1" aria-label="Mover antes">↑</button>
+          <button type="button" class="btn btn-sm" data-move="1" aria-label="Mover después">↓</button>
+          <button type="button" class="btn btn-sm btn-danger" data-remove>Quitar</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</AdminLayout>
+
+<style>
+  .head { display: flex; justify-content: space-between; align-items: end; }
+  .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 1000px) { .grid { grid-template-columns: minmax(0, 1fr) 300px; } }
+  .col { display: grid; gap: 20px; min-width: 0; }
+  .side { position: sticky; top: 84px; }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .three { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .between { justify-content: space-between; }
+  .label { font-size: 13px; font-weight: 500; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .check input { width: auto; }
+  .color { display: flex; gap: 8px; align-items: center; }
+  .color input[type='color'] { width: 44px; height: 42px; padding: 4px; flex: none; }
+  .faq { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) auto; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .faq textarea { grid-column: 1; }
+  .faq button { grid-column: 2; grid-row: 1; }
+  .variants td { padding: 6px 4px; }
+  .variants input { padding: 8px; min-width: 70px; }
+  .variants input[data-k='name'] { min-width: 140px; }
+  .variants input[type='checkbox'] { width: 18px; height: 18px; min-width: 0; }
+  .center { text-align: center; }
+  .images { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .img { display: grid; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; align-content: start; }
+  .pick { position: relative; cursor: crosshair; background: var(--cream); border-radius: 8px; overflow: hidden; }
+  .pick img { display: block; width: 100%; height: auto; aspect-ratio: auto; }
+  .pin { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid #fff; background: rgba(42, 37, 32, .6); box-shadow: 0 0 0 1px rgba(0,0,0,.3); pointer-events: none; }
+  .stack-sm { display: grid; gap: 8px; }
+  .stack-sm .row select { width: auto; flex: 1; }
+  .savebar { display: grid; gap: 10px; }
+  progress { width: 100%; }
+</style>
+
+<script>
+  import { actions, isInputError } from 'astro:actions';
+
+  const form = document.getElementById('editor') as HTMLFormElement;
+  const productId = form.dataset.id!;
+  const isDrink = form.dataset.type === 'drink';
+  const errorBox = document.getElementById('error')!;
+  const okBox = document.getElementById('ok')!;
+  let dirty = false;
+
+  const say = (box: HTMLElement | null, msg?: string) => {
+    errorBox.hidden = okBox.hidden = true;
+    if (box && msg) { box.textContent = msg; box.hidden = false; }
+  };
+
+  // ── Recorte (focus) de cada foto ──
+  function placePin(card: HTMLElement) {
+    const pin = card.querySelector<HTMLElement>('[data-pin]')!;
+    const [x, y] = (pin.dataset.focus ?? '50% 50%').split(' ');
+    pin.style.left = x;
+    pin.style.top = y;
+    card.querySelector('[data-focus-label]')!.textContent = pin.dataset.focus!;
+  }
+  function wireImage(card: HTMLElement) {
+    placePin(card);
+    card.querySelector('[data-pick]')!.addEventListener('click', (e) => {
+      const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const ev = e as MouseEvent;
+      const x = Math.round(((ev.clientX - box.left) / box.width) * 100);
+      const y = Math.round(((ev.clientY - box.top) / box.height) * 100);
+      card.querySelector<HTMLElement>('[data-pin]')!.dataset.focus = `${Math.min(100, Math.max(0, x))}% ${Math.min(100, Math.max(0, y))}%`;
+      placePin(card);
+      dirty = true;
+    });
+  }
+  document.querySelectorAll<HTMLElement>('[data-image]').forEach(wireImage);
+
+  // ── Filas que se agregan, quitan y mueven ──
+  form.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const remove = target.closest('[data-remove]');
+    if (remove) {
+      const row = remove.closest('[data-variant], [data-faq], [data-image]') as HTMLElement;
+      if (row.matches('[data-image]') && !confirm('¿Quitar esta foto? Se borra al guardar.')) return;
+      row.remove();
+      dirty = true;
+    }
+    const move = target.closest<HTMLElement>('[data-move]');
+    if (move) {
+      const card = move.closest('[data-image]')!;
+      if (move.dataset.move === '-1' && card.previousElementSibling) card.parentElement!.insertBefore(card, card.previousElementSibling);
+      if (move.dataset.move === '1' && card.nextElementSibling) card.parentElement!.insertBefore(card.nextElementSibling, card);
+      dirty = true;
+    }
+  });
+  const append = (templateId: string, containerId: string) => {
+    const tpl = document.getElementById(templateId) as HTMLTemplateElement;
+    const node = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    document.getElementById(containerId)!.append(node);
+    dirty = true;
+    return node;
+  };
+  document.getElementById('add-variant')!.addEventListener('click', () => append('variant-row', 'variants').querySelector('input')!.focus());
+  document.getElementById('add-faq')?.addEventListener('click', () => append('faq-row', 'faq').querySelector('input')!.focus());
+
+  // ── Colores: el selector y el texto se mantienen sincronizados ──
+  document.querySelectorAll<HTMLInputElement>('[data-color-for]').forEach((picker) => {
+    const text = form.querySelector<HTMLInputElement>(`[data-field="${picker.dataset.colorFor}"]`)!;
+    picker.addEventListener('input', () => { text.value = picker.value.toUpperCase(); dirty = true; });
+    text.addEventListener('input', () => { if (/^#[0-9a-f]{6}$/i.test(text.value)) picker.value = text.value; });
+  });
+
+  const seo = form.querySelector<HTMLTextAreaElement>('[data-field="seoDescription"]')!;
+  const seoCount = document.querySelector('[data-count="seoDescription"]')!;
+  const countSeo = () => (seoCount.textContent = `${seo.value.length}/160 recomendado`);
+  seo.addEventListener('input', countSeo);
+  countSeo();
+  form.addEventListener('input', () => (dirty = true));
+  window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
+
+  // ── Subida de fotos ──
+  const uploadStatus = document.getElementById('upload-status')!;
+  document.getElementById('upload-images')!.addEventListener('change', async (e) => {
+    const input = e.currentTarget as HTMLInputElement;
+    if (!input.files?.length) return;
+    const data = new FormData();
+    for (const f of input.files) data.append('files', f);
+    uploadStatus.hidden = false;
+    uploadStatus.textContent = `Subiendo ${input.files.length} foto(s)…`;
+    const res = await fetch(`/admin/api/productos/${productId}/imagenes`, { method: 'POST', body: data });
+    const body = await res.json().catch(() => ({ error: 'No se pudo subir.' }));
+    input.value = '';
+    if (!res.ok) { uploadStatus.textContent = body.error; return; }
+    uploadStatus.textContent = 'Fotos subidas. Completa su descripción y guarda.';
+    for (const img of body.images) {
+      const card = append('image-card', 'images');
+      card.dataset.id = img.id;
+      const el = card.querySelector('img')!;
+      el.src = img.url;
+      el.width = img.width;
+      el.height = img.height;
+      (card.querySelector('[data-k="role"]') as HTMLSelectElement).value = img.role;
+      (card.querySelector('[data-k="fit"]') as HTMLSelectElement).value = img.fit;
+      wireImage(card);
+    }
+  });
+
+  // ── PDF del e-book (con barra de progreso: puede pesar bastante) ──
+  document.getElementById('upload-pdf')?.addEventListener('change', (e) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const progress = document.getElementById('pdf-progress') as HTMLProgressElement;
+    const data = new FormData();
+    data.append('file', file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/admin/api/productos/${productId}/archivo`);
+    xhr.upload.onprogress = (ev) => { progress.hidden = false; progress.value = (ev.loaded / ev.total) * 100; };
+    xhr.onload = () => {
+      progress.hidden = true;
+      input.value = '';
+      const body = JSON.parse(xhr.responseText || '{}');
+      if (xhr.status !== 200) return say(errorBox, body.error ?? 'No se pudo subir el PDF.');
+      say(okBox, `PDF guardado: ${body.fileName}.`);
+      document.getElementById('file-info')!.textContent = `${body.fileName} · ${(body.fileSize / 1024 / 1024).toFixed(1)} MB`;
+    };
+    xhr.onerror = () => say(errorBox, 'Se cortó la conexión subiendo el PDF.');
+    xhr.send(data);
+  });
+
+  // ── Guardar ──
+  const value = (name: string) => form.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-field="${name}"]`);
+  const text = (name: string) => value(name)?.value ?? '';
+  const list = (name: string) => text(name).split('\n').map((s) => s.trim()).filter(Boolean);
+  const num = (name: string) => (text(name) === '' ? null : Number(text(name)));
+  const rowVal = (row: Element, k: string) => (row.querySelector(`[data-k="${k}"]`) as HTMLInputElement | null);
+
+  function collect() {
+    return {
+      id: productId,
+      slug: text('slug'),
+      status: text('status') as 'draft' | 'active' | 'archived',
+      name: text('name'),
+      sortOrder: Number(text('sortOrder') || 0),
+      headline: text('headline'),
+      description: text('description'),
+      seoDescription: text('seoDescription'),
+      line: isDrink ? (text('line') as 'flow' | 'cold-coffee') : null,
+      volume: isDrink ? text('volume') : null,
+      flavorColor: isDrink ? text('flavorColor') || null : null,
+      ingredients: isDrink ? list('ingredients') : [],
+      extras: isDrink ? list('extras') : [],
+      badges: isDrink ? list('badges') : [],
+      provisionalImages: (value('provisionalImages') as HTMLInputElement | null)?.checked ?? false,
+      subtitle: isDrink ? null : text('subtitle'),
+      pages: isDrink ? null : num('pages'),
+      format: isDrink ? null : text('format'),
+      summary: isDrink ? null : text('summary'),
+      includes: isDrink ? [] : list('includes'),
+      toc: isDrink ? [] : list('toc'),
+      faq: [...document.querySelectorAll('[data-faq]')].map((r) => ({ q: rowVal(r, 'q')!.value, a: (r.querySelector('[data-k="a"]') as HTMLTextAreaElement).value })),
+      coverColor: isDrink ? null : text('coverColor') || null,
+      coverInk: isDrink ? null : text('coverInk') || null,
+      variants: [...document.querySelectorAll<HTMLElement>('[data-variant]')].map((r) => ({
+        id: r.dataset.id,
+        name: rowVal(r, 'name')!.value,
+        sku: rowVal(r, 'sku')!.value,
+        price: Number(rowVal(r, 'price')!.value),
+        trackStock: isDrink,
+        stockSeen: Number(r.dataset.stockSeen ?? 0),
+        stock: Number(rowVal(r, 'stock')?.value ?? 0),
+        lowStock: Number(rowVal(r, 'lowStock')?.value ?? 0),
+        active: rowVal(r, 'active')!.checked,
+      })),
+      images: [...document.querySelectorAll<HTMLElement>('[data-image]')].map((c) => ({
+        id: c.dataset.id!,
+        role: (c.querySelector('[data-k="role"]') as HTMLSelectElement).value as never,
+        alt: rowVal(c, 'alt')!.value,
+        focus: c.querySelector<HTMLElement>('[data-pin]')!.dataset.focus!,
+        fit: (c.querySelector('[data-k="fit"]') as HTMLSelectElement).value as 'cover' | 'contain',
+      })),
+    };
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    say(null);
+    const button = document.getElementById('save') as HTMLButtonElement;
+    button.disabled = true;
+    const { error } = await actions.catalog.saveProduct(collect());
+    button.disabled = false;
+    if (error) {
+      const msg = isInputError(error)
+        ? error.issues.map((i) => i.message).filter((m, i, a) => a.indexOf(m) === i).join(' · ')
+        : error.message;
+      return say(errorBox, msg || 'No se pudo guardar.');
+    }
+    dirty = false;
+    say(okBox, 'Guardado.');
+    // Recarga para tomar el stock y los ids nuevos.
+    setTimeout(() => location.reload(), 600);
+  });
+</script>

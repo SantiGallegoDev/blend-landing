@@ -1,0 +1,155 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import { asc } from 'drizzle-orm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db, schema } from '../../../db';
+import { requirePermission } from '../../../lib/guard';
+import { formatCOP, statusLabel } from '../../../lib/format';
+import { adminMediaUrl } from '../../../lib/media';
+
+const denied = requirePermission(Astro, 'productos');
+if (denied) return denied;
+
+const created = Astro.getActionResult(actions.catalog.createProduct);
+if (created?.data) return Astro.redirect(`/admin/productos/${created.data.id}`);
+const bundleCreated = Astro.getActionResult(actions.catalog.createBundle);
+if (bundleCreated?.data) return Astro.redirect(`/admin/productos/combos/${bundleCreated.data.id}`);
+
+const products = await db.query.product.findMany({
+  orderBy: [asc(schema.product.type), asc(schema.product.sortOrder), asc(schema.product.name)],
+});
+const variants = await db.select().from(schema.variant).orderBy(asc(schema.variant.sortOrder));
+const images = await db.select().from(schema.productImage).orderBy(asc(schema.productImage.sortOrder));
+const bundles = await db.query.bundle.findMany({ orderBy: [asc(schema.bundle.sortOrder)] });
+
+const thumb = (productId: string) => {
+  const list = images.filter((i) => i.productId === productId);
+  return list.find((i) => i.role === 'card' || i.role === 'cover') ?? list[0];
+};
+const priceRange = (productId: string) => {
+  const prices = variants.filter((v) => v.productId === productId && v.active).map((v) => v.price);
+  if (!prices.length) return '—';
+  const [min, max] = [Math.min(...prices), Math.max(...prices)];
+  return min === max ? formatCOP(min) : `${formatCOP(min)} – ${formatCOP(max)}`;
+};
+const stockOf = (productId: string) => {
+  const tracked = variants.filter((v) => v.productId === productId && v.trackStock && v.active);
+  if (!tracked.length) return null;
+  return { total: tracked.reduce((s, v) => s + v.stock, 0), low: tracked.some((v) => v.stock <= v.lowStock) };
+};
+
+const groups = [
+  { type: 'drink', title: 'Bebidas', items: products.filter((p) => p.type === 'drink') },
+  { type: 'ebook', title: 'E-books', items: products.filter((p) => p.type === 'ebook') },
+] as const;
+const createError = created?.error && (isInputError(created.error) ? created.error.fields.name?.[0] : created.error.message);
+---
+<AdminLayout title="Productos">
+  <div class="head">
+    <div>
+      <h1>Productos</h1>
+      <p class="muted">Precios, fotos, textos y variantes. Los cambios llegan a la web al publicar.</p>
+    </div>
+    <form method="post" action={actions.catalog.createProduct} class="new">
+      <select name="type" aria-label="Tipo">
+        <option value="drink">Bebida</option>
+        <option value="ebook">E-book</option>
+      </select>
+      <input name="name" placeholder="Nombre del producto nuevo" required maxlength="80" aria-label="Nombre" />
+      <button class="btn btn-solid">Crear</button>
+    </form>
+  </div>
+  {createError && <p class="alert alert-bad">{createError}</p>}
+
+  {groups.map((g) => (
+    <section class="card">
+      <h2>{g.title}</h2>
+      {g.items.length === 0 ? <p class="muted small">Todavía no hay {g.title.toLowerCase()}.</p> : (
+        <ul class="plist">
+          {g.items.map((p) => {
+            const t = thumb(p.id);
+            const stock = stockOf(p.id);
+            return (
+              <li>
+                <a href={`/admin/productos/${p.id}`} class="prow">
+                  {t ? <img src={adminMediaUrl(t.key)} alt="" width="56" height="56" loading="lazy" data-focus={t.focus} data-fit={t.fit} /> : <span class="noimg" data-color={p.coverColor ?? p.flavorColor ?? ''}>{p.name.slice(0, 1)}</span>}
+                  <span class="pname">
+                    <strong>{p.name}</strong>
+                    <span class="small muted">{p.type === 'drink' ? [p.line, p.volume].filter(Boolean).join(' · ') : p.subtitle ?? p.format}</span>
+                  </span>
+                  <span class="small">{priceRange(p.id)}</span>
+                  <span class="small">{stock ? <span class:list={['badge', stock.total === 0 ? 'badge-bad' : stock.low ? 'badge-warn' : '']}>{stock.total} en stock</span> : p.type === 'ebook' ? (p.fileKey ? <span class="badge">PDF listo</span> : <span class="badge badge-warn">Sin PDF</span>) : '—'}</span>
+                  <span><span class:list={['badge', p.status === 'active' ? 'badge-ok' : p.status === 'archived' ? 'badge-bad' : 'badge-warn']}>{statusLabel[p.status]}</span></span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  ))}
+
+  <section class="card stack">
+    <div class="head">
+      <div>
+        <h2>Combos</h2>
+        <p class="small muted">Cajas que el cliente arma eligiendo sabores, con precio fijo (ej. six pack).</p>
+      </div>
+      <form method="post" action={actions.catalog.createBundle} class="new">
+        <input name="name" placeholder="Nombre del combo" required maxlength="80" aria-label="Nombre del combo" />
+        <button class="btn">Crear combo</button>
+      </form>
+    </div>
+    <ul class="plist">
+      {bundles.map((b) => (
+        <li>
+          <a href={`/admin/productos/combos/${b.id}`} class="prow brow">
+            <span class="pname"><strong>{b.name}</strong><span class="small muted">{b.size} unidades</span></span>
+            <span class="small">{formatCOP(b.price)}</span>
+            <span><span class:list={['badge', b.active ? 'badge-ok' : 'badge-warn']}>{b.active ? 'Activo' : 'Inactivo'}</span></span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</AdminLayout>
+
+<style>
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+  .new { display: flex; gap: 8px; flex-wrap: wrap; }
+  .new select { width: auto; }
+  .new input { width: 260px; max-width: 100%; }
+  .plist { list-style: none; margin: 12px 0 0; padding: 0; }
+  .prow {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) 160px 120px 100px;
+    gap: 16px;
+    align-items: center;
+    padding: 10px 8px;
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+    border-radius: 8px;
+  }
+  .prow:hover { background: var(--cream); }
+  .brow { grid-template-columns: minmax(0, 1fr) 160px 100px; }
+  .prow img, .noimg { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: var(--cream); }
+  .noimg { display: grid; place-items: center; font-weight: 500; color: var(--ink-2); }
+  .pname { display: grid; gap: 2px; min-width: 0; }
+  @media (max-width: 720px) {
+    .prow { grid-template-columns: 56px minmax(0, 1fr) auto; }
+    .prow > :nth-child(3), .prow > :nth-child(4) { display: none; }
+    .brow { grid-template-columns: minmax(0, 1fr) auto auto; }
+    .brow > :nth-child(2) { display: block; }
+  }
+</style>
+
+<script>
+  // Aplica recorte y color de cada miniatura (la CSP no permite estilos en línea, pero sí desde JS).
+  document.querySelectorAll<HTMLImageElement>('img[data-focus]').forEach((img) => {
+    img.style.objectPosition = img.dataset.focus!;
+    if (img.dataset.fit === 'contain') img.style.objectFit = 'contain';
+  });
+  document.querySelectorAll<HTMLElement>('.noimg[data-color]').forEach((el) => {
+    if (el.dataset.color) el.style.background = el.dataset.color;
+  });
+</script>

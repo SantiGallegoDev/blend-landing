@@ -1,0 +1,63 @@
+---
+import { and, desc, eq, gt } from 'drizzle-orm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db, schema } from '../../db';
+import { can } from '../../lib/guard';
+import { formatDate } from '../../lib/format';
+import { actionLabel } from '../../lib/audit-labels';
+
+const me = Astro.locals.user!;
+const hasPasskey = (await db.$count(schema.passkey, eq(schema.passkey.userId, me.id))) > 0;
+const since = new Date(Date.now() - 7 * 24 * 3600_000);
+const failedLogins = can(me.role, 'actividad')
+  ? await db.$count(schema.auditLog, and(eq(schema.auditLog.action, 'auth.login_failed'), gt(schema.auditLog.createdAt, since)))
+  : 0;
+const recent = await db.query.auditLog.findMany({
+  where: eq(schema.auditLog.userId, me.id),
+  orderBy: [desc(schema.auditLog.id)],
+  limit: 5,
+});
+const firstName = me.name.split(' ')[0];
+---
+<AdminLayout title="Inicio">
+  <div>
+    <h1>Hola, {firstName}</h1>
+    <p class="muted">Los pedidos, productos e inventario llegan en las próximas fases.</p>
+  </div>
+
+  <div class="grid">
+    <section class="card stack">
+      <h2>Tu seguridad</h2>
+      <ul class="checks">
+        <li><span class="badge badge-ok">Activa</span> Verificación en dos pasos</li>
+        <li>
+          {hasPasskey ? <span class="badge badge-ok">Activa</span> : <span class="badge badge-warn">Pendiente</span>} Passkey
+          {!hasPasskey && <a href="/admin/cuenta" class="small">Agregar</a>}
+        </li>
+      </ul>
+    </section>
+
+    {can(me.role, 'actividad') && (
+      <section class="card stack">
+        <h2>Intentos fallidos</h2>
+        <p><strong class="big">{failedLogins}</strong> <span class="muted small">inicios de sesión fallidos en 7 días</span></p>
+        <a href="/admin/actividad" class="small">Ver actividad</a>
+      </section>
+    )}
+
+    <section class="card stack">
+      <h2>Tu actividad reciente</h2>
+      <ul class="recent small">
+        {recent.map((r) => <li><span>{actionLabel[r.action] ?? r.action}</span><span class="muted">{formatDate(r.createdAt)}</span></li>)}
+      </ul>
+    </section>
+  </div>
+</AdminLayout>
+
+<style>
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .checks, .recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .checks li { display: flex; gap: 10px; align-items: center; }
+  .recent li { display: flex; justify-content: space-between; gap: 12px; }
+  .big { font-size: 32px; font-weight: 500; }
+</style>

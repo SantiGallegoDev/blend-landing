@@ -1,0 +1,65 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import { and, eq, gt, isNull } from 'drizzle-orm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db, schema } from '../../../db';
+import { hashToken } from '../../../lib/tokens';
+
+const { token = '' } = Astro.params;
+const result = Astro.getActionResult(actions.acceptInvite);
+if (result?.data) return Astro.redirect(`/admin/login?bienvenida=${encodeURIComponent(result.data.email)}`);
+
+const invite = await db.query.invitation.findFirst({
+  where: and(
+    eq(schema.invitation.tokenHash, hashToken(token)),
+    isNull(schema.invitation.acceptedAt),
+    isNull(schema.invitation.revokedAt),
+    gt(schema.invitation.expiresAt, new Date()),
+  ),
+});
+const fieldErrors = result?.error && isInputError(result.error) ? result.error.fields : {};
+const formError = result?.error && !isInputError(result.error) ? result.error.message : null;
+---
+<AdminLayout title="Crear tu cuenta" bare>
+  <div class="card stack">
+    {invite ? (
+      <>
+        <div class="stack-tight">
+          <h1>Crea tu cuenta</h1>
+          <p class="muted small">Para <strong>{invite.email}</strong> · rol {invite.role}</p>
+        </div>
+        {formError && <p class="alert alert-bad" role="alert">{formError}</p>}
+        <form method="post" action={actions.acceptInvite} class="stack">
+          <input type="hidden" name="token" value={token} />
+          <label class="field">
+            <span>Tu nombre</span>
+            <input name="name" autocomplete="name" required minlength="2" maxlength="80" />
+            {fieldErrors.name && <small class="err">{fieldErrors.name[0]}</small>}
+          </label>
+          <label class="field">
+            <span>Contraseña (mínimo 12 caracteres)</span>
+            <input type="password" name="password" autocomplete="new-password" required minlength="12" maxlength="128" />
+            {fieldErrors.password && <small class="err">{fieldErrors.password[0]}</small>}
+          </label>
+          <label class="field">
+            <span>Repite la contraseña</span>
+            <input type="password" name="confirm" autocomplete="new-password" required />
+            {fieldErrors.confirm && <small class="err">{fieldErrors.confirm[0]}</small>}
+          </label>
+          <p class="small muted">Después de crearla, el panel te pedirá activar la verificación en dos pasos.</p>
+          <button type="submit" class="btn btn-solid">Crear cuenta</button>
+        </form>
+      </>
+    ) : (
+      <>
+        <h1>Invitación no válida</h1>
+        <p class="muted">El enlace venció, ya se usó o fue revocado. Pide una invitación nueva a quien administra el panel.</p>
+      </>
+    )}
+  </div>
+</AdminLayout>
+
+<style>
+  .stack-tight { display: grid; gap: 4px; }
+  .err { color: var(--bad); }
+</style>

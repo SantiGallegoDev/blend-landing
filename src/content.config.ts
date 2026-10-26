@@ -1,9 +1,13 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { API_URL, bundlesLoader, catalogLoader, deliveryLoader } from './data/blend-api';
+
+// Con BLEND_API_URL el catálogo sale del panel (Railway); sin ella, de los Markdown de src/content.
+const variant = z.object({ id: z.string(), name: z.string(), price: z.number().int().positive(), trackStock: z.boolean() });
 
 const bebidas = defineCollection({
-  loader: glob({ pattern: '*.md', base: './src/content/bebidas' }),
+  loader: API_URL ? catalogLoader('drink') : glob({ pattern: '*.md', base: './src/content/bebidas' }),
   schema: ({ image }) => {
     const photo = z.object({
       src: image(),
@@ -14,6 +18,9 @@ const bebidas = defineCollection({
       fit: z.enum(['cover', 'contain']).default('cover'),
     });
     return z.object({
+      // Solo con el catálogo del panel: ids para el carrito.
+      productId: z.string().optional(),
+      variants: z.array(variant).default([]),
       name: z.string(),
       line: z.enum(['flow', 'cold-coffee']),
       order: z.number(),
@@ -42,9 +49,11 @@ const bebidas = defineCollection({
 });
 
 const ebooks = defineCollection({
-  loader: glob({ pattern: '*.md', base: './src/content/ebooks' }),
+  loader: API_URL ? catalogLoader('ebook') : glob({ pattern: '*.md', base: './src/content/ebooks' }),
   schema: ({ image }) =>
     z.object({
+      productId: z.string().optional(),
+      variants: z.array(variant).default([]),
       title: z.string(),
       subtitle: z.string().optional(),
       // Los borradores solo se ven en desarrollo, nunca en el build.
@@ -67,4 +76,23 @@ const ebooks = defineCollection({
     }),
 });
 
-export const collections = { bebidas, ebooks };
+// Combos (six pack) y domicilio: solo existen con el catálogo del panel.
+const combos = defineCollection({
+  loader: bundlesLoader(),
+  schema: z.object({
+    slug: z.string(),
+    name: z.string(),
+    description: z.string(),
+    size: z.number().int(),
+    price: z.number().int(),
+    variantIds: z.array(z.string()),
+  }),
+});
+
+const domicilio = defineCollection({
+  loader: deliveryLoader(),
+  // fee null = el domicilio aún no tiene precio en el panel.
+  schema: z.object({ fee: z.number().int().nullable(), cities: z.array(z.string()), note: z.string() }),
+});
+
+export const collections = { bebidas, ebooks, combos, domicilio };
