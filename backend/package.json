@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "astro dev --port 4400",
     "build": "astro build",
-    "start": "node ./dist/server/entry.mjs",
+    "start": "tsx scripts/migrate.ts && node ./dist/server/entry.mjs",
     "check": "astro check",
     "db:up": "docker compose up -d",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "create-owner": "tsx scripts/create-owner.ts",
-    "seed:catalog": "tsx scripts/seed-catalog.ts"
+    "seed:catalog": "tsx scripts/seed-catalog.ts",
+    "catalog": "tsx scripts/catalog-transfer.ts"
   },
   "engines": {
     "node": ">=22.12.0"
