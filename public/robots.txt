@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /brand
 
-Sitemap: https://blend.co/sitemap-index.xml
+Sitemap: https://www.univerxoblend.com/sitemap-index.xml
