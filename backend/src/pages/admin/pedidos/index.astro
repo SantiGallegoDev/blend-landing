@@ -74,7 +74,7 @@ const counts = Object.fromEntries(
           <tbody>
             {list.map((o) => (
               <tr class="link-row">
-                <td><a href={`/admin/pedidos/${o.id}`} class="mono">{orderNumber(o.number)}</a></td>
+                <td><a href={`/admin/pedidos/${o.id}`} class="order-no">{orderNumber(o.number)}</a></td>
                 <td><div>{o.customerName}</div><div class="small muted">{o.hasPhysical ? o.city : 'Solo digital'}</div></td>
                 <td>{formatCOP(o.total)}</td>
                 <td><span class:list={['badge', orderStatusBadge[o.status]]}>{orderStatusLabel[o.status]}</span></td>
@@ -98,7 +98,8 @@ const counts = Object.fromEntries(
   .tabs a[aria-current='page'] { background: var(--ink); color: var(--warm); border-color: var(--ink); }
   .count { font-size: 12px; background: var(--warn-bg); color: var(--warn); border-radius: 999px; padding: 0 7px; }
   .tabs a[aria-current='page'] .count { background: var(--warm); color: var(--ink); }
-  .link-row a { font-weight: 500; }
+  .order-no { font-weight: 600; text-decoration: none; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .8); box-shadow: var(--shadow-sm); white-space: nowrap; }
+  .order-no:hover { background: #fff; }
   .nowrap { white-space: nowrap; }
   .more { margin-top: 16px; }
 </style>

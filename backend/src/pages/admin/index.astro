@@ -1,63 +1,307 @@
 ---
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import Icon from '../../components/Icon.astro';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db, schema } from '../../db';
+import { env } from '../../env';
 import { can } from '../../lib/guard';
-import { formatDate } from '../../lib/format';
-import { actionLabel } from '../../lib/audit-labels';
+import { formatCOP, formatDate, fulfillmentLabel, orderStatusBadge, orderStatusLabel } from '../../lib/format';
+import { orderNumber } from '../../lib/orders';
 
 const me = Astro.locals.user!;
-const hasPasskey = (await db.$count(schema.passkey, eq(schema.passkey.userId, me.id))) > 0;
-const since = new Date(Date.now() - 7 * 24 * 3600_000);
-const failedLogins = can(me.role, 'actividad')
-  ? await db.$count(schema.auditLog, and(eq(schema.auditLog.action, 'auth.login_failed'), gt(schema.auditLog.createdAt, since)))
-  : 0;
-const recent = await db.query.auditLog.findMany({
-  where: eq(schema.auditLog.userId, me.id),
-  orderBy: [desc(schema.auditLog.id)],
-  limit: 5,
-});
+const TZ = 'America/Bogota';
+const hour = Number(new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hour12: false, timeZone: TZ }).format(new Date()));
+const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
 const firstName = me.name.split(' ')[0];
+const seesOrders = can(me.role, 'pedidos');
+const seesStock = can(me.role, 'inventario');
+
+// Ventas de los últimos 7 días (pagadas), por día en hora de Colombia.
+// Zona horaria como texto fijo: con parámetro, Postgres no reconoce la misma expresión en el GROUP BY.
+const day = sql<string>`to_char((${schema.order.paidAt} at time zone 'America/Bogota')::date, 'YYYY-MM-DD')`;
+const salesRows = seesOrders
+  ? await db
+      .select({ day, total: sql<number>`sum(${schema.order.total})::int`, count: sql<number>`count(*)::int` })
+      .from(schema.order)
+      .where(and(eq(schema.order.status, 'paid'), gte(schema.order.paidAt, sql`now() - interval '7 days'`)))
+      .groupBy(day)
+  : [];
+const days = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(Date.now() - (6 - i) * 86_400_000);
+  const key = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d);
+  const row = salesRows.find((r) => r.day === key);
+  return {
+    key,
+    label: new Intl.DateTimeFormat('es-CO', { weekday: 'short', timeZone: TZ }).format(d).replace('.', ''),
+    total: row?.total ?? 0,
+    count: row?.count ?? 0,
+  };
+});
+const today = days[6];
+const week = days.reduce((s, d) => ({ total: s.total + d.total, count: s.count + d.count }), { total: 0, count: 0 });
+const maxDay = Math.max(...days.map((d) => d.total), 1);
+
+const toShip = seesOrders
+  ? await db.query.order.findMany({
+      where: and(eq(schema.order.status, 'paid'), inArray(schema.order.fulfillment, ['pending', 'preparing', 'dispatched'])),
+      orderBy: [asc(schema.order.paidAt)],
+      limit: 5,
+    })
+  : [];
+const toShipCount = seesOrders
+  ? await db.$count(schema.order, and(eq(schema.order.status, 'paid'), inArray(schema.order.fulfillment, ['pending', 'preparing', 'dispatched'])))
+  : 0;
+const attention = seesOrders ? await db.$count(schema.order, eq(schema.order.status, 'attention')) : 0;
+const recent = seesOrders ? await db.query.order.findMany({ orderBy: [desc(schema.order.number)], limit: 6 }) : [];
+
+const lowStock = seesStock
+  ? await db
+      .select({ name: schema.product.name, variant: schema.variant.name, stock: schema.variant.stock, color: schema.product.flavorColor })
+      .from(schema.variant)
+      .innerJoin(schema.product, eq(schema.variant.productId, schema.product.id))
+      .where(and(eq(schema.variant.trackStock, true), eq(schema.variant.active, true), eq(schema.product.status, 'active'), lte(schema.variant.stock, schema.variant.lowStock)))
+      .orderBy(asc(schema.variant.stock))
+      .limit(6)
+  : [];
+
+const hasPasskey = (await db.$count(schema.passkey, eq(schema.passkey.userId, me.id))) > 0;
+const barH = (v: number) => Math.max(v === 0 ? 3 : 10, Math.round((v / maxDay) * 96));
 ---
 <AdminLayout title="Inicio">
-  <div>
-    <h1>Hola, {firstName}</h1>
-    <p class="muted">Los pedidos, productos e inventario llegan en las próximas fases.</p>
-  </div>
+  <section class="hello">
+    <div>
+      <h1>{greeting}, {firstName}.</h1>
+      <p class="muted">
+        {seesOrders
+          ? toShipCount
+            ? `Tienes ${toShipCount} ${toShipCount === 1 ? 'pedido' : 'pedidos'} por despachar.`
+            : 'No hay pedidos pendientes por despachar. Todo al día.'
+          : 'Aquí tienes un resumen de tu cuenta.'}
+      </p>
+    </div>
+    <div class="quick">
+      {seesOrders && <a href="/admin/pedidos" class="btn btn-solid"><Icon name="bag" size={18} />Ver pedidos</a>}
+      {seesStock && <a href="/admin/inventario" class="btn"><Icon name="plus" size={18} />Cargar stock</a>}
+      <a href={env.SITE_ORIGIN} class="btn" target="_blank" rel="noopener noreferrer"><Icon name="globe" size={18} />Ver la web</a>
+    </div>
+  </section>
 
-  <div class="grid">
-    <section class="card stack">
-      <h2>Tu seguridad</h2>
-      <ul class="checks">
-        <li><span class="badge badge-ok">Activa</span> Verificación en dos pasos</li>
-        <li>
-          {hasPasskey ? <span class="badge badge-ok">Activa</span> : <span class="badge badge-warn">Pendiente</span>} Passkey
-          {!hasPasskey && <a href="/admin/cuenta" class="small">Agregar</a>}
-        </li>
-      </ul>
+  {attention > 0 && (
+    <a href="/admin/pedidos?vista=atencion" class="alert alert-warn attention">
+      <Icon name="alert" size={18} /> {attention} {attention === 1 ? 'pedido necesita' : 'pedidos necesitan'} tu revisión. <span class="go">Revisar <Icon name="arrow" size={16} /></span>
+    </a>
+  )}
+
+  {seesOrders && (
+    <section class="kpis">
+      <article class="card kpi kpi-hero">
+        <div class="kpi-head"><span class="kpi-icon"><Icon name="cash" /></span><span>Ventas de hoy</span></div>
+        <p class="kpi-value">{formatCOP(today.total)}</p>
+        <p class="kpi-sub">{today.count} {today.count === 1 ? 'pedido pagado' : 'pedidos pagados'}</p>
+      </article>
+
+      <article class="card kpi kpi-chart">
+        <div class="kpi-head"><span class="kpi-icon"><Icon name="activity" /></span><span>Últimos 7 días</span></div>
+        <p class="kpi-value">{formatCOP(week.total)}</p>
+        <p class="kpi-sub">{week.count} {week.count === 1 ? 'pedido' : 'pedidos'}</p>
+        <svg class="bars" viewBox="0 0 280 120" preserveAspectRatio="xMidYMax meet" role="img" aria-label={`Ventas por día: ${days.map((d) => `${d.label} ${formatCOP(d.total)}`).join(', ')}`}>
+          <defs>
+            <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#DC4981" />
+              <stop offset="60%" stop-color="#EA8B15" />
+              <stop offset="100%" stop-color="#CAC05F" />
+            </linearGradient>
+          </defs>
+          {days.map((d, i) => (
+            <g>
+              <rect x={i * 40 + 8} y={100 - barH(d.total)} width="24" height={barH(d.total)} rx="7" fill={d.total ? 'url(#bar)' : 'rgba(42,37,32,.1)'} opacity={i === 6 ? '1' : '.75'}>
+                <title>{d.label}: {formatCOP(d.total)}</title>
+              </rect>
+              <text x={i * 40 + 20} y="116" text-anchor="middle" class="bar-label">{d.label}</text>
+            </g>
+          ))}
+        </svg>
+      </article>
+
+      <article class="card kpi">
+        <div class="kpi-head"><span class="kpi-icon"><Icon name="truck" /></span><span>Por despachar</span></div>
+        <p class="kpi-value">{toShipCount}</p>
+        <p class="kpi-sub">{toShipCount ? 'pedidos esperando entrega' : 'todo entregado'}</p>
+        <a href="/admin/pedidos" class="kpi-link">Abrir pedidos <Icon name="arrow" size={16} /></a>
+      </article>
     </section>
+  )}
 
-    {can(me.role, 'actividad') && (
-      <section class="card stack">
-        <h2>Intentos fallidos</h2>
-        <p><strong class="big">{failedLogins}</strong> <span class="muted small">inicios de sesión fallidos en 7 días</span></p>
-        <a href="/admin/actividad" class="small">Ver actividad</a>
-      </section>
+  <section class="grid">
+    {seesOrders && (
+      <article class="card list-card">
+        <div class="card-head">
+          <h2>Por despachar</h2>
+          <a href="/admin/pedidos" class="see">Ver todos <Icon name="arrow" size={15} /></a>
+        </div>
+        {toShip.length === 0 ? (
+          <div class="empty"><span class="empty-icon"><Icon name="check" size={22} /></span><p>No hay entregas pendientes.</p></div>
+        ) : (
+          <ul class="list">
+            {toShip.map((o) => (
+              <li>
+                <a href={`/admin/pedidos/${o.id}`} class="li-link">
+                  <span class="li-main">
+                    <strong>{o.customerName}</strong>
+                    <span class="muted small">{o.city ?? 'Digital'} · {orderNumber(o.number)}</span>
+                  </span>
+                  <span class="li-side">
+                    <span class="price">{formatCOP(o.total)}</span>
+                    <span class="badge badge-warn">{fulfillmentLabel[o.fulfillment]}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
     )}
 
-    <section class="card stack">
-      <h2>Tu actividad reciente</h2>
-      <ul class="recent small">
-        {recent.map((r) => <li><span>{actionLabel[r.action] ?? r.action}</span><span class="muted">{formatDate(r.createdAt)}</span></li>)}
+    {seesStock && (
+      <article class="card list-card">
+        <div class="card-head">
+          <h2>Stock bajo</h2>
+          <a href="/admin/inventario" class="see">Inventario <Icon name="arrow" size={15} /></a>
+        </div>
+        {lowStock.length === 0 ? (
+          <div class="empty"><span class="empty-icon"><Icon name="check" size={22} /></span><p>Todos los sabores tienen stock suficiente.</p></div>
+        ) : (
+          <ul class="list">
+            {lowStock.map((s) => (
+              <li class="li-static">
+                <span class="dot" data-color={s.color ?? ''}></span>
+                <span class="li-main"><strong>{s.name}</strong><span class="muted small">{s.variant}</span></span>
+                <span class:list={['badge', s.stock === 0 ? 'badge-bad' : 'badge-warn']}>{s.stock === 0 ? 'Agotado' : `Quedan ${s.stock}`}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
+    )}
+
+    {seesOrders && (
+      <article class="card list-card wide">
+        <div class="card-head">
+          <h2>Pedidos recientes</h2>
+          <a href="/admin/pedidos?vista=todos" class="see">Historial <Icon name="arrow" size={15} /></a>
+        </div>
+        {recent.length === 0 ? (
+          <div class="empty"><span class="empty-icon"><Icon name="bag" size={22} /></span><p>Aún no hay pedidos. Cuando alguien compre en la web, aparecerá aquí.</p></div>
+        ) : (
+          <ul class="list">
+            {recent.map((o) => (
+              <li>
+                <a href={`/admin/pedidos/${o.id}`} class="li-link">
+                  <span class="li-main">
+                    <strong>{o.customerName}</strong>
+                    <span class="muted small">{orderNumber(o.number)} · {formatDate(o.createdAt)}</span>
+                  </span>
+                  <span class="li-side">
+                    <span class="price">{formatCOP(o.total)}</span>
+                    <span class:list={['badge', orderStatusBadge[o.status]]}>{orderStatusLabel[o.status]}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
+    )}
+
+    <article class="card security">
+      <div class="card-head"><h2>Tu seguridad</h2><Icon name="shield" size={22} class="muted" /></div>
+      <ul class="checks">
+        <li><span class="check ok"><Icon name="check" size={14} /></span> Verificación en dos pasos activa</li>
+        <li>
+          {hasPasskey
+            ? <><span class="check ok"><Icon name="check" size={14} /></span> Passkey configurada</>
+            : <><span class="check"><Icon name="plus" size={14} /></span> <span><a href="/admin/cuenta">Agrega una passkey</a> para entrar con tu huella</span></>}
+        </li>
       </ul>
-    </section>
-  </div>
+    </article>
+  </section>
 </AdminLayout>
 
 <style>
-  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-  .checks, .recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .checks li { display: flex; gap: 10px; align-items: center; }
-  .recent li { display: flex; justify-content: space-between; gap: 12px; }
-  .big { font-size: 32px; font-weight: 500; }
+  .hello { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; }
+  .hello h1 { margin-bottom: 6px; }
+  .quick { display: flex; gap: 10px; flex-wrap: wrap; }
+  .attention { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .attention .go { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+
+  .kpis { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: stretch; }
+  @media (min-width: 760px) { .kpis { grid-template-columns: 1fr 1.6fr 1fr; } }
+  .kpi { display: grid; align-content: start; gap: 4px; overflow: hidden; }
+  .kpi-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 8px; }
+  .kpi-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, .8);
+    box-shadow: var(--shadow-sm);
+  }
+  .kpi-value { font-family: var(--serif); font-size: clamp(30px, 3vw, 38px); line-height: 1.05; letter-spacing: -.02em; font-weight: 400; }
+  .kpi-sub { font-size: 13px; color: var(--ink-3); }
+  .kpi-link { margin-top: 10px; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; text-decoration: none; }
+  .kpi-link:hover { text-decoration: underline; }
+  /* La tarjeta principal lleva un degradado de sabores muy suave. */
+  .kpi-hero {
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(220, 73, 129, .16), transparent 60%),
+      radial-gradient(100% 80% at 0% 100%, rgba(234, 139, 21, .14), transparent 60%),
+      var(--glass-strong);
+  }
+  .kpi-chart { grid-template-columns: 1fr; }
+  .bars { width: 100%; height: 112px; margin-top: 10px; overflow: visible; }
+  .bar-label { font-family: var(--sans); font-size: 11px; fill: rgba(42, 37, 32, .5); text-transform: capitalize; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
+  @media (min-width: 900px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .wide { grid-column: 1 / -1; }
+  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .see { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; color: var(--ink-2); text-decoration: none; }
+  .see:hover { color: var(--ink); }
+  .list { list-style: none; margin: 0 -10px; padding: 0; display: grid; }
+  .li-link, .li-static {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 10px;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: background .15s var(--ease);
+  }
+  .li-link:hover { background: rgba(255, 255, 255, .7); }
+  .list li + li { border-top: 1px solid var(--line); }
+  .li-main { min-width: 0; flex: 1; display: grid; }
+  .li-main strong { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .li-side { display: flex; align-items: center; gap: 10px; }
+  .price { font-variant-numeric: tabular-nums; font-weight: 500; }
+  @media (max-width: 520px) { .li-side { flex-direction: column; align-items: end; gap: 4px; } }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--latte); box-shadow: 0 0 0 3px rgba(255, 255, 255, .9); flex: none; }
+
+  .empty { display: grid; justify-items: center; gap: 10px; padding: 22px 10px; text-align: center; color: var(--ink-2); }
+  .empty-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); }
+
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .checks li { display: flex; align-items: center; gap: 10px; }
+  .check { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--warn-bg); color: var(--warn); flex: none; }
+  .check.ok { background: var(--ok-bg); color: var(--ok); }
 </style>
+
+<script>
+  // Color de cada sabor en los puntos (la CSP no permite estilos en línea, sí desde JS).
+  document.querySelectorAll<HTMLElement>('.dot[data-color]').forEach((el) => {
+    if (el.dataset.color) el.style.background = el.dataset.color;
+  });
+</script>
