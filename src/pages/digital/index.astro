@@ -4,6 +4,7 @@ import EbookCard from '../../components/EbookCard.astro';
 import EbookCover3D from '../../components/EbookCover3D.astro';
 import DigitalHowTo from '../../components/DigitalHowTo.astro';
 import { getEbooks } from '../../data/catalog';
+import { waLink } from '../../data/site';
 
 const ebooks = await getEbooks();
 const hasDrafts = ebooks.some((e) => e.data.draft);
@@ -43,7 +44,8 @@ const hasDrafts = ebooks.some((e) => e.data.draft);
     ) : (
       <div class="dg-empty">
         <p class="h3">Estamos preparando la biblioteca.</p>
-        <p class="body">Muy pronto vas a encontrar aquí nuestros e-books, con su contenido y su precio.</p>
+        <p class="body">Cada e-book va a llegar con su índice, páginas de muestra y precio. Si quieres, te avisamos cuando salga el primero.</p>
+        <a class="link-arrow" href={waLink('Hola Blend, avísenme cuando salgan los e-books.')} target="_blank" rel="noopener">Avísame por WhatsApp</a>
       </div>
     )}
     <DigitalHowTo />
@@ -73,6 +75,7 @@ const hasDrafts = ebooks.some((e) => e.data.draft);
   .dg-empty {
     display: grid;
     gap: 12px;
+    justify-items: start;
     padding: clamp(28px, 4vw, 48px);
     border-radius: var(--r-lg);
     border: 1px dashed color-mix(in oklab, var(--sage-ink) 40%, transparent);

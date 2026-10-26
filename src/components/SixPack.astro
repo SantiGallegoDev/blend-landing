@@ -1,0 +1,240 @@
+---
+// El six pack de Flow como una caja que se arma a gusto. Con carrito, cada sabor tiene su
+// contador y la caja se agrega cuando suma las latas del combo; sin carrito, va a WhatsApp.
+import Photo from './Photo.astro';
+import { getDrinks } from '../data/catalog';
+import { site, drinkLines, formatCOP, perUnit, waLink, type DrinkFormat } from '../data/site';
+import { cartEnabled, getSixPack } from '../data/shop';
+
+const pack = await getSixPack();
+const flowDrinks = (await getDrinks()).filter((d) => d.data.line === 'flow');
+// Cada sabor con la variante (lata) que entra en la caja, si viene del panel.
+const flavors = flowDrinks
+  .map((d) => ({ drink: d, variantId: d.data.variants.find((v) => pack?.variantIds.includes(v.id))?.id }))
+  .filter((f) => !pack || f.variantId);
+const local = drinkLines.flow.formats.find((f) => f.id === 'six')!;
+const six: DrinkFormat = pack ? { ...local, price: pack.price, units: pack.size, detail: `${pack.size} × 330 ml` } : local;
+const builder = cartEnabled && !!pack && flavors.length > 0;
+const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
+---
+<section class="pack section" aria-labelledby="pack-title">
+  <div class="container">
+    <div class="pack-panel">
+      <div class="pack-visual" aria-hidden="true" data-reveal-children>
+        {flavors.map(({ drink: d }) => (
+          <div class="pack-can arch flavored" style={`--flavor:${d.data.flavor}`}>
+            <Photo src={d.data.card.src} alt="" focus={d.data.card.focus} fit={d.data.card.fit} sizes="(min-width: 1000px) 16vw, 30vw" maxWidth={700} />
+          </div>
+        ))}
+        <span class="pack-seal">
+          <span class="pack-seal-num">{six.units}</span>
+          <span class="pack-seal-txt">latas</span>
+        </span>
+      </div>
+
+      <div class="pack-copy">
+        <p class="eyebrow" data-reveal="fade-up">Six pack · {drinkLines.flow.name}</p>
+        <h2 id="pack-title" class="h2" data-reveal="fade-up">Arma tu <em>caja</em> de seis.</h2>
+        <p class="body" data-reveal="fade-up">
+          Seis latas de Flow combinadas a tu gusto: todas del mismo sabor o una mezcla de los tres.
+        </p>
+
+        {builder ? (
+          <div class="pack-builder" data-pack data-bundle={pack!.id} data-size={pack!.size} data-reveal="fade-up">
+            <ul class="pack-picks" aria-label="Sabores de tu caja">
+              {flavors.map(({ drink: d, variantId }) => (
+                <li class="pack-pick flavored" style={`--flavor:${d.data.flavor}`} data-variant={variantId}>
+                  <a href={`/bebidas/${d.id}`} class="pack-pick-name"><span class="chip-dot"></span>{d.data.name}</a>
+                  <span class="pack-step" role="group" aria-label={`Latas de ${d.data.name}`}>
+                    <button type="button" data-step="-1" aria-label={`Quitar una ${d.data.name}`}>−</button>
+                    <output data-count>0</output>
+                    <button type="button" data-step="1" aria-label={`Agregar una ${d.data.name}`}>+</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p class="small pack-left" aria-live="polite" data-left>Elige {pack!.size} latas.</p>
+          </div>
+        ) : (
+          <ul class="pack-flavors" data-reveal="fade-up" aria-label="Sabores para tu caja">
+            {flavors.map(({ drink: d }) => (
+              <li class="flavored" style={`--flavor:${d.data.flavor}`}>
+                <a href={`/bebidas/${d.id}`} class="chip"><span class="chip-dot"></span>{d.data.name}</a>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div class="pack-buy" data-reveal="fade-up">
+          <p class="pack-price">{formatCOP(six.price)}</p>
+          <p class="small">{perUnit(six)} · {six.detail}</p>
+        </div>
+        <div class="pack-cta" data-reveal="fade-up">
+          {builder ? (
+            <button type="button" class="btn btn-solid" data-pack-add disabled>Agregar caja al carrito</button>
+          ) : (
+            <a href={waLink(waText)} class="btn btn-solid" target="_blank" rel="noopener">Armar mi caja</a>
+          )}
+          <p class="small">Entregamos frías en {site.deliveryArea}.</p>
+        </div>
+        {builder && (
+          <p class="small pack-added" role="status" data-pack-added hidden>
+            Tu caja quedó en el carrito. <a href="/carrito" class="link-arrow">Ver carrito</a>
+          </p>
+        )}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pack-panel {
+    display: grid;
+    gap: clamp(36px, 5vw, 64px);
+    align-items: center;
+    padding: clamp(28px, 5vw, 72px);
+    border-radius: var(--r-lg);
+    background:
+      radial-gradient(70% 80% at 18% 70%, color-mix(in oklab, var(--pink) 14%, var(--cream)), transparent 70%),
+      var(--cream);
+  }
+
+  /* Tres arcos en abanico: el del medio sube, como una caja abierta. */
+  .pack-visual {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(8px, 1.4vw, 16px);
+    align-items: end;
+    padding-top: 8%;
+  }
+  .pack-can {
+    --arch-v: 37.5%;
+    aspect-ratio: 3 / 4;
+    background: var(--tint);
+    box-shadow: 0 30px 50px -34px color-mix(in oklab, var(--flavor) 60%, var(--ink));
+  }
+  .pack-can:nth-child(2) { translate: 0 -12%; }
+  .pack-seal {
+    position: absolute;
+    right: -2%;
+    top: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    width: clamp(72px, 8vw, 104px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--cream);
+    rotate: 8deg;
+  }
+  .pack-seal-num { font-family: var(--serif); font-size: clamp(30px, 3.4vw, 44px); line-height: .9; font-weight: 300; }
+  .pack-seal-txt { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+
+  .pack-copy { display: grid; gap: 18px; justify-items: start; }
+  .pack-copy .h2 { max-width: 12ch; }
+  .pack-flavors { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pack-flavors .chip { transition: border-color .3s var(--ease); }
+  .pack-flavors .chip:hover { border-color: var(--ink); }
+
+  .pack-builder { display: grid; gap: 10px; width: 100%; max-width: 420px; }
+  .pack-picks { display: grid; border-top: 1px solid var(--line); }
+  .pack-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .pack-pick-name { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; }
+  .pack-step {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .55);
+  }
+  .pack-step button { width: 38px; height: 38px; border-radius: 999px; font-size: 18px; }
+  .pack-step button:hover:not(:disabled) { background: var(--warm); }
+  .pack-step button:disabled { opacity: .35; cursor: default; }
+  .pack-step output { min-width: 22px; text-align: center; font-family: var(--mono); }
+  .pack-left { color: var(--ink-2); }
+
+  .pack-buy {
+    display: grid;
+    gap: 2px;
+    padding-top: 18px;
+    margin-top: 4px;
+    border-top: 1px solid var(--line);
+    width: 100%;
+    max-width: 420px;
+  }
+  .pack-builder + .pack-buy { border-top: 0; padding-top: 4px; }
+  .pack-price {
+    font-family: var(--serif);
+    font-size: clamp(34px, 3.4vw, 46px);
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .pack-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+  .pack-cta .btn:disabled { opacity: .45; cursor: default; }
+  .pack-cta .btn:disabled:hover { color: var(--btn-fg); }
+  .pack-cta .btn:disabled::before { display: none; }
+  .pack-added { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--ink); }
+
+  @media (min-width: 1000px) {
+    .pack-panel { grid-template-columns: 1.1fr 1fr; }
+  }
+</style>
+
+<script>
+  import { addBundle } from '../scripts/cart';
+
+  document.querySelectorAll<HTMLElement>('[data-pack]').forEach((box) => {
+    const panel = box.closest('.pack-copy');
+    const size = Number(box.dataset.size);
+    const bundleId = box.dataset.bundle!;
+    const rows = [...box.querySelectorAll<HTMLElement>('[data-variant]')];
+    const left = box.querySelector<HTMLElement>('[data-left]');
+    const add = panel?.querySelector<HTMLButtonElement>('[data-pack-add]');
+    const added = panel?.querySelector<HTMLElement>('[data-pack-added]');
+    const counts = new Map(rows.map((r) => [r.dataset.variant!, 0]));
+
+    const render = () => {
+      const total = [...counts.values()].reduce((a, b) => a + b, 0);
+      rows.forEach((r) => {
+        const n = counts.get(r.dataset.variant!)!;
+        r.querySelector('output')!.value = String(n);
+        r.querySelector<HTMLButtonElement>('[data-step="-1"]')!.disabled = n === 0;
+        r.querySelector<HTMLButtonElement>('[data-step="1"]')!.disabled = total >= size;
+      });
+      const missing = size - total;
+      if (left) left.textContent = missing === size ? `Elige ${size} latas.` : missing === 1 ? 'Te falta 1 lata.' : missing > 0 ? `Te faltan ${missing} latas.` : 'Tu caja está completa.';
+      if (add) add.disabled = missing !== 0;
+    };
+
+    rows.forEach((r) => {
+      r.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = r.dataset.variant!;
+          counts.set(id, Math.max(0, counts.get(id)! + Number(btn.dataset.step)));
+          if (added) added.hidden = true;
+          render();
+        });
+      });
+    });
+
+    add?.addEventListener('click', () => {
+      const picks = [...counts].filter(([, qty]) => qty > 0).map(([variantId, qty]) => ({ variantId, qty }));
+      addBundle(bundleId, picks);
+      counts.forEach((_, k) => counts.set(k, 0));
+      render();
+      if (added) added.hidden = false;
+    });
+
+    render();
+  });
+</script>

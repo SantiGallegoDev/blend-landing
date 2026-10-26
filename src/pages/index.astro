@@ -2,11 +2,12 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HeroEcosystem from '../components/HeroEcosystem.astro';
 import DrinkShowcase from '../components/DrinkShowcase.astro';
+import SixPack from '../components/SixPack.astro';
 import IngredientStory from '../components/IngredientStory.astro';
 import Bridge from '../components/Bridge.astro';
 import DigitalShowcase from '../components/DigitalShowcase.astro';
 import Moments from '../components/Moments.astro';
-import Origin from '../components/Origin.astro';
+import HowToOrder from '../components/HowToOrder.astro';
 import BusinessTeaser from '../components/BusinessTeaser.astro';
 import { site, instagramUrl } from '../data/site';
 
@@ -26,10 +27,11 @@ const jsonLd = {
 <BaseLayout jsonLd={jsonLd}>
   <HeroEcosystem />
   <DrinkShowcase />
+  <SixPack />
   <IngredientStory />
   <Bridge />
   <DigitalShowcase />
   <Moments />
-  <Origin />
+  <HowToOrder />
   <BusinessTeaser />
 </BaseLayout>

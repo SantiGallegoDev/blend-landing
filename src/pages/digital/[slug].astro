@@ -5,8 +5,10 @@ import EbookCover3D from '../../components/EbookCover3D.astro';
 import EbookCard from '../../components/EbookCard.astro';
 import DigitalHowTo from '../../components/DigitalHowTo.astro';
 import Photo from '../../components/Photo.astro';
+import PaymentMethods from '../../components/PaymentMethods.astro';
 import { getEbooks } from '../../data/catalog';
-import { site, formatCOP, waLink } from '../../data/site';
+import { formatCOP, waLink } from '../../data/site';
+import { cartEnabled } from '../../data/shop';
 
 export const getStaticPaths = (async () => {
   const ebooks = await getEbooks();
@@ -22,9 +24,7 @@ const faq = [
   ...e.faq,
   {
     q: '¿Cómo lo recibo?',
-    a: site.checkoutEnabled
-      ? 'Cuando Mercado Pago confirma el pago, te enviamos un correo con un enlace para descargarlo.'
-      : 'Por ahora coordinamos la compra por WhatsApp. Muy pronto podrás pagarlo aquí y recibirlo automáticamente en tu correo.',
+    a: 'Apenas se confirma tu pago, te llega un correo con el enlace para descargarlo.',
   },
   {
     q: '¿Puedo leerlo en el teléfono?',
@@ -81,15 +81,20 @@ if (e.price) {
           </ul>
           {e.price && <p class="price eb-price">{formatCOP(e.price)}</p>}
           <div class="eb-actions">
-            {site.checkoutEnabled ? (
-              <button class="btn btn-solid" type="button" disabled>Comprar e-book</button>
+            {cartEnabled && e.variants[0] ? (
+              <a class="btn btn-solid" href="/carrito" data-buy-ebook={e.variants[0].id}>Comprar e-book</a>
             ) : (
               <a class="btn btn-solid" href={waLink(`Hola Blend, me interesa el e-book "${e.title}".`)} target="_blank" rel="noopener">
-                Pedir por WhatsApp
+                Comprar e-book
               </a>
             )}
             <a class="link-arrow" href="#que-incluye">Ver qué incluye</a>
           </div>
+          <ul class="eb-promise small">
+            <li>Te llega al correo apenas se confirma el pago, en {e.format}.</li>
+            <li>Lo abres en el teléfono, la tablet o el computador.</li>
+          </ul>
+          <PaymentMethods size="sm" class="eb-pay" />
         </div>
       </div>
     </section>
@@ -180,6 +185,24 @@ if (e.price) {
   .eb-meta { display: flex; flex-wrap: wrap; gap: 8px; }
   .eb-price { font-size: 20px; }
   .eb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 6px; }
+  .eb-promise {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    max-width: 440px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .eb-promise li { position: relative; padding-left: 22px; }
+  .eb-buy :global(.eb-pay) { color: var(--ink-2); }
+  .eb-promise li::before {
+    content: '♥';
+    position: absolute;
+    left: 0;
+    top: .15em;
+    font-size: 10px;
+    color: var(--sage-ink);
+  }
 
   .eb-content { display: grid; gap: 48px; }
   .eb-block { display: grid; gap: 18px; align-content: start; }
@@ -249,3 +272,17 @@ if (e.price) {
     .eb-others-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 </style>
+
+<script>
+  import { addItem, readCart } from '../../scripts/cart';
+
+  // Un e-book va una sola vez al carrito y lleva directo a pagar.
+  document.querySelectorAll<HTMLAnchorElement>('[data-buy-ebook]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = btn.dataset.buyEbook!;
+      if (!readCart().items.some((i) => i.variantId === id)) addItem(id, 1, 1);
+      location.href = '/carrito';
+    });
+  });
+</script>

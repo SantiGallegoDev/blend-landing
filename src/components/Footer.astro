@@ -1,5 +1,6 @@
 ---
 import logo from '../assets/marca/logo-blend.webp';
+import PaymentMethods from './PaymentMethods.astro';
 import { getDrinks } from '../data/catalog';
 import { site, waLink, instagramUrl } from '../data/site';
 
@@ -63,6 +64,7 @@ const cols = [
         ))}
       </div>
     </div>
+    <PaymentMethods class="footer-pay" />
     <div class="footer-bottom">
       <span>© {year} Blend · {site.city}</span>
       <span class="footer-legal">
@@ -110,12 +112,13 @@ const cols = [
     transition: color .3s var(--ease);
   }
   .footer-cols a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+  .footer :global(.footer-pay) { margin-top: 56px; color: rgba(246, 239, 227, .86); }
   .footer-bottom {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 56px;
+    margin-top: 28px;
     padding-top: 22px;
     border-top: 1px solid rgba(246, 239, 227, .14);
     font-size: 13px;

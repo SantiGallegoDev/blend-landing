@@ -84,10 +84,12 @@ const Heading = headingLevel;
   .drink-card-ingredients { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
   .drink-card-foot {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 8px 12px;
     margin-top: 10px;
   }
+  .drink-card-foot .link-arrow { white-space: nowrap; }
   .drink-card-link:focus-visible { outline-offset: 6px; }
 </style>

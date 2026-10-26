@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { site, waLink, instagramUrl, drinkLines, formatCOP, events } from '../data/site';
+import { site, waLink, instagramUrl, formatCOP, events } from '../data/site';
 import { getDrinks } from '../data/catalog';
+import { flowFormats } from '../data/shop';
 
 const drinks = await getDrinks();
-const flow = drinkLines.flow.formats;
+const flow = await flowFormats();
 const lata = flow.find((f) => f.id === 'lata');
 const six = flow.find((f) => f.id === 'six');
 const litro = flow.find((f) => f.id === 'litro');
@@ -13,8 +14,7 @@ const coffee = drinks
   .map((d) => `${d.data.name} ${formatCOP(d.data.price!)}`)
   .join(' y ');
 
-// Respuestas que reflejan cómo funciona Blend hoy (pedidos por WhatsApp).
-// Al activar el pago en línea (Fase 4) se actualizan junto con site.checkoutEnabled.
+// Respuestas escritas para la tienda con pago en línea (pasarela activa).
 const groups = [
   {
     id: 'bebidas',
@@ -26,7 +26,7 @@ const groups = [
       },
       {
         q: '¿Puedo armar el six pack con varios sabores?',
-        a: 'Sí. El six pack Flow lo armas con los sabores que quieras; nos dices la combinación por WhatsApp.',
+        a: 'Sí. El six pack Flow lo armas con los sabores que quieras; eliges la combinación antes de agregarlo al carrito.',
       },
       {
         q: '¿Dónde entregan?',
@@ -34,7 +34,7 @@ const groups = [
       },
       {
         q: '¿Cómo hago un pedido?',
-        a: 'Elige tus bebidas y escríbenos por WhatsApp desde la ficha de cada una. Ahí coordinamos la entrega y el pago. Muy pronto podrás pagar en línea desde la web.',
+        a: 'Elige tus bebidas, agrégalas al carrito y paga aquí mismo. Después te escribimos para coordinar la hora de entrega.',
       },
       {
         q: '¿Cómo se conservan?',
@@ -63,9 +63,7 @@ const groups = [
       { q: '¿En qué formato llegan?', a: 'En PDF, para leer en el teléfono, la tablet o el computador.' },
       {
         q: '¿Cómo los recibo?',
-        a: site.checkoutEnabled
-          ? 'Cuando Mercado Pago confirma tu pago, te enviamos un correo con un enlace de descarga.'
-          : 'Por ahora coordinamos la compra por WhatsApp. Muy pronto podrás pagarlos aquí con Mercado Pago y recibirlos automáticamente en tu correo.',
+        a: 'Apenas se confirma tu pago, te llega un correo con el enlace para descargarlo.',
       },
       {
         q: '¿Puedo ver el contenido antes de comprar?',
@@ -79,9 +77,15 @@ const groups = [
     items: [
       {
         q: '¿Cómo puedo pagar?',
-        a: site.checkoutEnabled
-          ? 'Con Mercado Pago: tarjeta, PSE o Efecty. Nunca pedimos los datos de tu tarjeta en esta web.'
-          : 'Hoy acordamos el pago contigo por WhatsApp. Estamos preparando el pago en línea con Mercado Pago.',
+        a: 'Con tarjeta débito o crédito (Visa y Mastercard), PSE o Efecty.',
+      },
+      {
+        q: '¿Es seguro pagar aquí?',
+        a: 'Sí. El pago se hace en una pasarela certificada: Blend nunca ve ni guarda los datos de tu tarjeta.',
+      },
+      {
+        q: '¿Qué pasa si pago con PSE o Efecty?',
+        a: 'El pedido queda reservado mientras se confirma el pago. Con Efecty puede tardar un poco; te avisamos por correo cuando esté listo.',
       },
     ],
   },

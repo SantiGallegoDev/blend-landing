@@ -3,9 +3,11 @@ import type { GetStaticPaths } from 'astro';
 import { getImage } from 'astro:assets';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Photo from '../../components/Photo.astro';
+import PaymentMethods from '../../components/PaymentMethods.astro';
 import DrinkCard from '../../components/DrinkCard.astro';
 import { getDrinks } from '../../data/catalog';
-import { site, drinkLines, formatCOP, waLink, type DrinkFormat } from '../../data/site';
+import { site, drinkLines, formatCOP, perUnit, waLink, type DrinkFormat } from '../../data/site';
+import { cartEnabled, drinkFormats } from '../../data/shop';
 
 export const getStaticPaths = (async () => {
   const drinks = await getDrinks();
@@ -17,12 +19,12 @@ const d = drink.data;
 const line = drinkLines[d.line];
 const related = drinks.filter((x) => x.id !== drink.id);
 
-// Presentaciones: las de la línea (Flow) o, si no hay, la lata con su precio.
-const formats: DrinkFormat[] =
-  line.formats.length > 0
-    ? [...line.formats]
-    : [{ id: 'lata', label: 'Lata', detail: d.volume, price: d.price ?? 0 }];
+// Presentaciones: variantes y six pack del panel, o las de la línea en site.ts.
+const formats = await drinkFormats(drink);
 const first = formats[0];
+// Con carrito, el six pack de esta ficha se llena con latas de este sabor.
+const canVariant = formats.find((f) => f.id === 'lata')?.variantId ?? first.variantId;
+const cart = cartEnabled && !!first.variantId;
 const formatLabel = (f: DrinkFormat) => [f.label, f.detail].filter(Boolean).join(' ').toLowerCase();
 const message = (qty: number, f: DrinkFormat) => `Hola Blend, quiero pedir ${qty} × ${d.name}, ${formatLabel(f)}.`;
 const packNote = formats.find((f) => f.note)?.note;
@@ -83,7 +85,7 @@ if (d.price) {
             {d.badges.map((b) => <li class="chip"><span class="chip-dot"></span>{b}</li>)}
           </ul>
 
-          <div class="pdp-actions" data-order data-name={d.name}>
+          <div class="pdp-actions" data-order data-name={d.name} data-cart={cart ? 'on' : undefined} data-variant={first.variantId}>
             {formats.length > 1 && (
               <fieldset class="formats">
                 <legend class="eyebrow">Presentación</legend>
@@ -96,16 +98,27 @@ if (d.price) {
                       checked={i === 0}
                       data-price={f.price}
                       data-label={formatLabel(f)}
+                      data-variant={f.variantId}
+                      data-bundle={f.bundleId}
+                      data-units={f.units}
+                      data-pick={f.bundleId ? canVariant : undefined}
                     />
                     <span class="format-chip">
                       <span class="format-name">{f.label} <small>{f.detail}</small></span>
-                      <span class="price">{formatCOP(f.price)}</span>
+                      <span class="format-price">
+                        <span class="price">{formatCOP(f.price)}</span>
+                        {perUnit(f) && <small>{perUnit(f)}</small>}
+                      </span>
                     </span>
                   </label>
                 ))}
               </fieldset>
             )}
-            {packNote && <p class="small">{packNote}</p>}
+            {packNote && (
+              <p class="small pdp-pack-note">
+                {packNote} <a href="/bebidas#caja">Combinar sabores</a>
+              </p>
+            )}
 
             <p class="pdp-price price" data-total data-unit={first.price} aria-live="polite">{formatCOP(first.price)}</p>
 
@@ -115,24 +128,50 @@ if (d.price) {
                 <output data-qty>1</output>
                 <button type="button" data-step="1" aria-label="Agregar una">+</button>
               </div>
-              <a
-                class="btn btn-solid pdp-cta"
-                href={waLink(message(1, first))}
-                target="_blank"
-                rel="noopener"
-                data-wa
-                data-label={formatLabel(first)}
-              >
-                Pedir por WhatsApp
-              </a>
+              {cart ? (
+                <a class="btn btn-solid pdp-cta" href="/carrito" data-wa data-add data-label={formatLabel(first)}>
+                  Agregar al carrito
+                </a>
+              ) : (
+                <a
+                  class="btn btn-solid pdp-cta"
+                  href={waLink(message(1, first))}
+                  target="_blank"
+                  rel="noopener"
+                  data-wa
+                  data-label={formatLabel(first)}
+                >
+                  Comprar
+                </a>
+              )}
             </div>
+            {cart && (
+              <p class="small pdp-added" role="status" data-added hidden>
+                Listo, quedó en tu carrito. <a href="/carrito" class="link-arrow">Ver carrito</a>
+              </p>
+            )}
           </div>
-          <p class="small pdp-note">
-            Entregamos frías en {site.deliveryArea}. {site.deliveryNotes[0]} Muy pronto podrás pagar en línea.
-          </p>
+          <ul class="pdp-promise small">
+            <li>Entregamos frías en {site.deliveryArea}.</li>
+            <li>{site.deliveryNotes[0]}</li>
+            <li>Pagas aquí y te escribimos para coordinar la hora de entrega.</li>
+          </ul>
+          <PaymentMethods size="sm" class="pdp-pay" />
         </div>
       </div>
     </section>
+
+    <div class="buybar" data-buybar aria-hidden="true">
+      <div class="container buybar-inner">
+        <span class="buybar-name">{d.name}</span>
+        <span class="price" data-buybar-total>{formatCOP(first.price)}</span>
+        {cart ? (
+          <a class="btn btn-solid" href="/carrito" tabindex="-1" data-buybar-cta>Agregar</a>
+        ) : (
+          <a class="btn btn-solid" href={waLink(message(1, first))} target="_blank" rel="noopener" tabindex="-1" data-buybar-cta>Comprar</a>
+        )}
+      </div>
+    </div>
 
     <section class="container section-sm pdp-info">
       <div class="pdp-block">
@@ -246,9 +285,15 @@ if (d.price) {
     color: var(--cream);
   }
   .format input:checked + .format-chip small { color: rgba(246, 239, 227, .75); }
+  .format-price { display: grid; justify-items: end; line-height: 1.2; }
+  .format-price small { font-size: 12px; color: var(--ink-2); }
   .format input:focus-visible + .format-chip { outline: 2px solid var(--ink); outline-offset: 3px; }
 
   .pdp-price { font-size: 20px; }
+  .pdp-pack-note a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .pdp-added { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--ink); }
+  .pdp-added:not([hidden]) { animation: added-in .5s var(--ease); }
+  @keyframes added-in { from { opacity: 0; transform: translateY(-4px); } }
   .pdp-order { display: flex; flex-wrap: wrap; gap: 12px; }
   .qty {
     display: inline-flex;
@@ -265,7 +310,55 @@ if (d.price) {
   }
   .qty button:hover { background: rgba(255, 255, 255, .6); }
   .qty output { min-width: 28px; text-align: center; font-family: var(--mono); font-size: 16px; }
-  .pdp-note { max-width: 42ch; }
+  .pdp-promise {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    max-width: 440px;
+    padding-top: 16px;
+    border-top: 1px solid color-mix(in oklab, var(--ink) 10%, transparent);
+  }
+  .pdp-promise li { position: relative; padding-left: 22px; }
+  .pdp-buy :global(.pdp-pay) { color: var(--ink-2); }
+  .pdp-promise li::before {
+    content: '♥';
+    position: absolute;
+    left: 0;
+    top: .15em;
+    font-size: 10px;
+    color: var(--deep);
+  }
+
+  /* Barra de compra fija en móvil: aparece cuando el botón principal sale de pantalla. */
+  .buybar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    background: color-mix(in oklab, var(--warm) 90%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+    border-top: 1px solid var(--line);
+    translate: 0 110%;
+    transition: translate .5s var(--ease);
+  }
+  .buybar[data-show] { translate: 0 0; }
+  :global(body:has(.buybar)) { padding-bottom: 72px; }
+  .buybar-inner { display: flex; align-items: center; gap: 12px; }
+  .buybar-name {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 300;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .buybar .btn { min-height: 44px; padding: 0 22px; }
 
   .pdp-info { display: grid; gap: 40px; }
   .pdp-block { display: grid; gap: 18px; align-content: start; }
@@ -308,13 +401,17 @@ if (d.price) {
     .pdp-related-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
   }
   @media (min-width: 960px) {
+    .buybar { display: none; }
+    :global(body:has(.buybar)) { padding-bottom: 0; }
     .pdp-hero-grid { grid-template-columns: 1.35fr 1fr; gap: 64px; }
     .pdp-media { aspect-ratio: 5 / 4; }
   }
 </style>
 
 <script>
-  // Cantidad + presentación → precio total y mensaje de WhatsApp.
+  import { addBundle, addItem } from '../../scripts/cart';
+
+  // Cantidad + presentación → precio total y, según el modo, carrito o mensaje de WhatsApp.
   document.querySelectorAll<HTMLElement>('[data-order]').forEach((box) => {
     const out = box.querySelector<HTMLOutputElement>('[data-qty]');
     const link = box.querySelector<HTMLAnchorElement>('[data-wa]');
@@ -322,9 +419,14 @@ if (d.price) {
     const radios = [...box.querySelectorAll<HTMLInputElement>('input[name="formato"]')];
     if (!out || !link) return;
 
+    const cartMode = box.dataset.cart === 'on';
+    const added = box.querySelector<HTMLElement>('[data-added]');
     const base = link.href.split('?')[0];
     const name = box.dataset.name ?? '';
     const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+    const bar = document.querySelector<HTMLElement>('[data-buybar]');
+    const barTotal = bar?.querySelector<HTMLElement>('[data-buybar-total]');
+    const barCta = bar?.querySelector<HTMLAnchorElement>('[data-buybar-cta]');
     let qty = 1;
 
     const update = () => {
@@ -335,9 +437,43 @@ if (d.price) {
       if (total && unit) {
         total.textContent = qty > 1 ? `${cop.format(unit * qty)} · ${qty} × ${cop.format(unit)}` : cop.format(unit);
       }
+      if (barTotal && unit) barTotal.textContent = cop.format(unit * qty);
+      if (cartMode) return;
       const text = `Hola Blend, quiero pedir ${qty} × ${name}, ${label}.`;
       link.href = `${base}?text=${encodeURIComponent(text)}`;
+      if (barCta) barCta.href = link.href;
     };
+
+    // Carrito: una variante suelta o tantas cajas como la cantidad, llenas de este sabor.
+    const addToCart = (e: Event) => {
+      e.preventDefault();
+      const chosen = radios.find((r) => r.checked);
+      const bundleId = chosen?.dataset.bundle;
+      if (bundleId) {
+        const pick = { variantId: chosen!.dataset.pick ?? '', qty: Number(chosen!.dataset.units ?? 6) };
+        for (let i = 0; i < qty; i++) addBundle(bundleId, [pick]);
+      } else {
+        const variantId = chosen?.dataset.variant ?? box.dataset.variant;
+        if (variantId) addItem(variantId, qty);
+      }
+      link.textContent = 'Agregado';
+      setTimeout(() => (link.textContent = 'Agregar al carrito'), 1800);
+      if (added) added.hidden = false;
+    };
+    if (cartMode) {
+      link.addEventListener('click', addToCart);
+      barCta?.addEventListener('click', addToCart);
+    }
+
+    // La barra fija aparece solo cuando el botón principal ya quedó arriba, fuera de pantalla.
+    if (bar && barCta) {
+      new IntersectionObserver(([entry]) => {
+        const show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        bar.toggleAttribute('data-show', show);
+        bar.setAttribute('aria-hidden', String(!show));
+        barCta.tabIndex = show ? 0 : -1;
+      }).observe(link);
+    }
 
     box.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((btn) => {
       btn.addEventListener('click', () => {

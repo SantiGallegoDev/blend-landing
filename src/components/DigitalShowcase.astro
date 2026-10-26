@@ -2,8 +2,10 @@
 import EbookCard from './EbookCard.astro';
 import DigitalHowTo from './DigitalHowTo.astro';
 import { getEbooks } from '../data/catalog';
+import { waLink } from '../data/site';
 
 const ebooks = await getEbooks();
+const notifyText = 'Hola Blend, avísenme cuando salgan los e-books.';
 ---
 <section class="digital" aria-labelledby="digital-title">
   <div class="container section digital-inner">
@@ -29,7 +31,8 @@ const ebooks = await getEbooks();
     ) : (
       <div class="digital-empty">
         <p class="h3">Estamos preparando la biblioteca.</p>
-        <p class="body">Muy pronto vas a encontrar aquí nuestros e-books, con su contenido y su precio.</p>
+        <p class="body">Cada e-book va a llegar con su índice, páginas de muestra y precio. Si quieres, te avisamos cuando salga el primero.</p>
+        <a class="link-arrow" href={waLink(notifyText)} target="_blank" rel="noopener">Avísame por WhatsApp</a>
       </div>
     )}
 
@@ -70,6 +73,7 @@ const ebooks = await getEbooks();
   .digital-empty {
     display: grid;
     gap: 12px;
+    justify-items: start;
     padding: clamp(28px, 4vw, 48px);
     border-radius: var(--r-lg);
     border: 1px dashed color-mix(in oklab, var(--sage-ink) 40%, transparent);

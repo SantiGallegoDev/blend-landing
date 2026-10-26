@@ -57,7 +57,17 @@ export type DrinkFormat = {
   detail?: string;
   price: number;
   note?: string;
+  // Latas que trae el formato (six pack = 6). Sirve para mostrar el precio por lata.
+  units?: number;
+  // Con el catálogo del panel: qué agrega al carrito (una variante o el combo).
+  variantId?: string;
+  bundleId?: string;
 };
+
+// "$7.000 por lata" para formatos de varias unidades; vacío para la lata suelta.
+export function perUnit(f: DrinkFormat): string {
+  return f.units && f.units > 1 ? `${formatCOP(Math.round(f.price / f.units))} por lata` : '';
+}
 
 export const drinkLines = {
   flow: {
@@ -66,7 +76,7 @@ export const drinkLines = {
     // Precios del catálogo para toda la línea.
     formats: [
       { id: 'lata', label: 'Lata', detail: '330 ml', price: 10000 },
-      { id: 'six', label: 'Six pack', detail: '6 × 330 ml', price: 42000, note: 'Ármalo con los sabores que quieras.' },
+      { id: 'six', label: 'Six pack', detail: '6 × 330 ml', price: 42000, units: 6, note: 'Ármalo con los sabores que quieras.' },
       { id: 'litro', label: '1 litro', price: 25000 },
     ] as DrinkFormat[],
   },

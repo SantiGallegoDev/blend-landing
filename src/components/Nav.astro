@@ -3,6 +3,7 @@ import logo from '../assets/marca/logo-blend.webp';
 import pinkCloud from '../assets/bebidas/pink-cloud/travertino-palmas.png';
 import Photo from './Photo.astro';
 import { navLinks, waLink } from '../data/site';
+import { cartEnabled } from '../data/shop';
 
 const path = Astro.url.pathname;
 const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
@@ -29,6 +30,12 @@ const secondary = [
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
         <span>Escríbenos</span>
       </a>
+      {cartEnabled && (
+        <a class="nav-cart" href="/carrito" data-cart-link aria-label="Carrito">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 8h13l-1 11.2a2 2 0 0 1-2 1.8h-7a2 2 0 0 1-2-1.8zM9 8V6.5a3 3 0 0 1 6 0V8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <span class="nav-cart-count" data-cart-count hidden>0</span>
+        </a>
+      )}
       <button class="nav-burger" type="button" aria-expanded="false" aria-controls="menu-movil">
         <span class="sr-only" data-label>Abrir menú</span>
         <span class="burger-line burger-top"></span>
@@ -126,6 +133,33 @@ const secondary = [
   .nav-contact:hover { border-color: var(--ink); background: var(--cream); }
   .nav-contact svg { width: 18px; height: 18px; }
 
+  .nav-cart {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    transition: background-color .3s var(--ease);
+  }
+  .nav-cart:hover { background: var(--cream); }
+  .nav-cart svg { width: 22px; height: 22px; }
+  .nav-cart-count {
+    position: absolute;
+    top: 4px;
+    right: 2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--cream);
+    font: 500 11px/18px var(--sans);
+    text-align: center;
+  }
+  .nav-cart-count.is-bump { animation: cart-bump .5s var(--ease); }
+  @keyframes cart-bump { 40% { transform: scale(1.3); } }
+
   .nav-burger {
     width: 44px;
     height: 44px;
@@ -217,7 +251,28 @@ const secondary = [
 </style>
 
 <script>
+  import { cartCount, onCartChange } from '../scripts/cart';
+
   const nav = document.querySelector<HTMLElement>('[data-nav]');
+
+  // Contador del carrito (solo existe si el carrito está activo).
+  const cartLink = document.querySelector<HTMLAnchorElement>('[data-cart-link]');
+  const count = cartLink?.querySelector<HTMLElement>('[data-cart-count]');
+  if (cartLink && count) {
+    const paint = (bump = false) => {
+      const n = cartCount();
+      count.textContent = String(n);
+      count.hidden = n === 0;
+      cartLink.setAttribute('aria-label', n ? `Carrito, ${n} ${n === 1 ? 'producto' : 'productos'}` : 'Carrito');
+      if (bump && n) {
+        count.classList.remove('is-bump');
+        void count.offsetWidth;
+        count.classList.add('is-bump');
+      }
+    };
+    paint();
+    onCartChange(() => paint(true));
+  }
   const burger = document.querySelector<HTMLButtonElement>('.nav-burger');
   const drawer = document.getElementById('menu-movil');
   const label = burger?.querySelector<HTMLElement>('[data-label]');

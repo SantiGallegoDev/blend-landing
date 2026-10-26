@@ -2,11 +2,14 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Photo from '../../components/Photo.astro';
 import DrinkGrid from '../../components/DrinkGrid.astro';
+import SixPack from '../../components/SixPack.astro';
 import { getDrinks } from '../../data/catalog';
-import { site, drinkLines, waLink, formatCOP } from '../../data/site';
+import { flowFormats } from '../../data/shop';
+import { site, drinkLines, formatCOP, perUnit } from '../../data/site';
 import sunset from '../../assets/bebidas/sunset/terrazo-durazno.png';
 
 const drinks = await getDrinks();
+const flow = await flowFormats();
 const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
 ---
 <BaseLayout
@@ -22,15 +25,20 @@ const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
       <h1 class="h1" data-rise="2">Cinco latas frías, cada una con su <em>carácter</em>.</h1>
       <p class="lead" data-rise="3">
         Fruta, raíces y café de especialidad, sin azúcar añadida.
-        Desde {formatCOP(fromPrice)} la lata, entregadas frías en {site.deliveryArea}.
+        Las entregamos frías en {site.deliveryArea}.
       </p>
+      <div class="cat-hero-actions" data-rise="4">
+        <a class="btn btn-solid" href="#todas">Elige tu sabor</a>
+        <a class="link-arrow" href="#caja">Arma tu caja de seis</a>
+      </div>
     </div>
   </section>
 
   <section class="cat-lines container" aria-label="Líneas y precios">
     {Object.entries(drinkLines).map(([key, line]) => {
       const inLine = drinks.filter((d) => d.data.line === key);
-      const note = line.formats.find((f) => f.note)?.note;
+      const formats = key === 'flow' ? flow : line.formats;
+      const note = formats.find((f) => f.note)?.note;
       return (
         <div class="cat-line" data-reveal="fade-up">
           <p class="eyebrow">Línea</p>
@@ -38,11 +46,14 @@ const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
           <p class="body">{line.short}</p>
           <p class="small">{inLine.map((d) => d.data.name).join(' · ')}</p>
           <dl class="cat-prices">
-            {line.formats.length > 0
-              ? line.formats.map((f) => (
+            {formats.length > 0
+              ? formats.map((f) => (
                   <div>
                     <dt>{f.label}{f.detail && <span>{f.detail}</span>}</dt>
-                    <dd class="price">{formatCOP(f.price)}</dd>
+                    <dd class="cat-price">
+                      <span class="price">{formatCOP(f.price)}</span>
+                      {perUnit(f) && <small>{perUnit(f)}</small>}
+                    </dd>
                   </div>
                 ))
               : inLine.map((d) => (
@@ -58,21 +69,23 @@ const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
     })}
   </section>
 
-  <section class="cat-grid flavored" data-tint-scope aria-label="Todas las bebidas">
+  <section class="cat-grid flavored" id="todas" data-tint-scope aria-label="Todas las bebidas">
     <div class="container section-sm">
       <DrinkGrid drinks={drinks} headingLevel="h2" />
     </div>
   </section>
+
+  <div id="caja"><SixPack /></div>
 
   <section class="container section-sm">
     <div class="cat-delivery">
       <div>
         <p class="eyebrow">Entregas</p>
         <h2 class="h3">Las entregamos frías en {site.deliveryArea}.</h2>
-        <p class="body">{site.deliveryNotes.join(' ')} Por ahora coordinamos cada pedido por WhatsApp; muy pronto podrás pagar en línea desde aquí.</p>
+        <p class="body">{site.deliveryNotes.join(' ')} Pagas aquí mismo y te escribimos para coordinar la hora de entrega.</p>
       </div>
       <div class="cat-delivery-actions">
-        <a class="btn btn-solid" href={waLink()} target="_blank" rel="noopener">Pedir por WhatsApp</a>
+        <a class="btn btn-solid" href="#todas">Elige tus bebidas</a>
         <a class="link-arrow" href="/ayuda#bebidas">Preguntas frecuentes</a>
       </div>
     </div>
@@ -129,6 +142,9 @@ const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
   .cat-prices dt { font-weight: 500; }
   .cat-prices dt span { font-weight: 400; color: var(--ink-2); margin-left: 6px; }
   .cat-prices dd { margin: 0; }
+  .cat-price { display: grid; justify-items: end; line-height: 1.3; }
+  .cat-price small { font-size: 12px; color: var(--ink-2); }
+  .cat-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 6px; }
   .cat-note { margin-top: 4px; }
 
   .cat-grid {

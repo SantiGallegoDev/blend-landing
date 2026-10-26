@@ -23,9 +23,13 @@ const featured = (await getEbooks()).find((e) => !e.data.draft && e.data.cover);
         Lo que tomas y lo que lees, con un mismo propósito, desde {site.city}.
       </p>
       <div class="hero-actions" data-rise="4">
-        <a class="btn btn-solid" href="/bebidas">Ver las bebidas</a>
+        <a class="btn btn-solid" href="/bebidas">Elige tus bebidas</a>
         <a class="hero-link" href="/digital">Ver los e-books</a>
       </div>
+      <ul class="hero-promise" data-rise="5">
+        <li>Entregamos frías en {site.deliveryArea}</li>
+        <li>Sin azúcar añadida</li>
+      </ul>
     </div>
 
     <div class="hero-scene flavored" data-tilt data-rise="3">
@@ -86,19 +90,31 @@ const featured = (await getEbooks()).find((e) => !e.data.draft && e.data.cover);
     transition: color .3s var(--ease);
   }
   .hero-link:hover { color: var(--deep); }
+  .hero-promise {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .hero-promise li { display: inline-flex; align-items: center; gap: 8px; }
+  .hero-promise li::before { content: '♥'; font-size: 9px; color: var(--pink); }
 
   /* La escena: sin marco. El arco es la única forma; lata y libro flotan delante. */
   .hero-scene { --flavor: var(--pink); position: relative; }
   .scene { position: relative; aspect-ratio: 1; }
 
-  /* Halo de color que mezcla las dos líneas (rosa de la bebida, salvia del papel). */
+  /* Halo de color que mezcla las dos líneas (rosa de la bebida, salvia del papel).
+     closest-side: cada halo se desvanece antes de tocar el borde de la caja, sin cortes rectos. */
   .scene-glow {
+    --glow-sage: color-mix(in oklab, var(--sage) 58%, var(--paper));
     position: absolute;
     inset: -8% -6% -4%;
     z-index: 0;
     background:
-      radial-gradient(48% 44% at 30% 78%, var(--tint-strong), transparent 72%),
-      radial-gradient(40% 40% at 80% 26%, color-mix(in oklab, var(--sage) 58%, var(--paper)), transparent 72%);
+      radial-gradient(closest-side at 34% 70%, var(--tint-strong), color-mix(in oklab, var(--tint-strong) 40%, transparent) 55%, transparent),
+      radial-gradient(closest-side at 70% 34%, var(--glow-sage), color-mix(in oklab, var(--glow-sage) 40%, transparent) 55%, transparent);
     translate: calc(var(--mx, 0) * -8px) calc(var(--my, 0) * -6px);
     transition: translate 1.2s var(--ease);
     pointer-events: none;

@@ -1,0 +1,90 @@
+---
+// Cómo pedir: pasos, precios y entrega tal como los trae el catálogo.
+import PaymentMethods from './PaymentMethods.astro';
+import { site, formatCOP, perUnit } from '../data/site';
+import { flowFormats } from '../data/shop';
+
+const steps = [
+  ['Elige', 'Latas sueltas, un six pack armado con los sabores que quieras o el formato de 1 litro.'],
+  ['Paga aquí', 'Con tarjeta débito o crédito, PSE o Efecty, en una pasarela de pago segura.'],
+  ['Recibe', `Entregamos en ${site.deliveryArea}. ${site.deliveryNotes.join(' ')}`],
+];
+
+const prices = (await flowFormats()).map((f) => [f.label, formatCOP(f.price), perUnit(f)]);
+---
+<section class="order section" id="pedir" aria-labelledby="order-title">
+  <div class="container order-inner">
+    <div class="order-copy">
+      <p class="eyebrow" data-reveal="fade-up">Cómo pedir</p>
+      <h2 id="order-title" class="h2" data-reveal="fade-up">
+        Eliges, pagas. <em>Te lo llevamos.</em>
+      </h2>
+      <p class="body" data-reveal="fade-up">
+        Haces tu pedido aquí mismo y te escribimos para coordinar la hora de entrega.
+      </p>
+      <a href="/bebidas" class="btn btn-solid" data-reveal="fade-up">Elige tus bebidas</a>
+      <PaymentMethods size="sm" class="order-pay" />
+    </div>
+
+    <ol class="order-steps" data-reveal-children>
+      {steps.map(([title, text], i) => (
+        <li>
+          <span class="order-num">{String(i + 1).padStart(2, '0')}</span>
+          <div>
+            <h3 class="h3">{title}</h3>
+            <p class="body">{text}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <dl class="order-facts" data-reveal-children>
+      {prices.map(([label, value, unit]) => (
+        <div>
+          <dt class="eyebrow">{label} · Flow</dt>
+          <dd>{value}</dd>
+          {unit && <dd class="order-unit small">{unit}</dd>}
+        </div>
+      ))}
+    </dl>
+  </div>
+</section>
+
+<style>
+  .order-inner { display: grid; gap: 40px; }
+  .order-copy { display: grid; gap: 18px; justify-items: start; align-content: start; }
+  .order-copy .btn { margin-top: 8px; }
+  .order-copy :global(.order-pay) { margin-top: 6px; color: var(--ink-2); }
+  .order-steps { list-style: none; margin: 0; padding: 0; display: grid; }
+  .order-steps li {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+    padding: 22px 0;
+    border-top: 1px solid var(--line);
+  }
+  .order-steps li:last-child { border-bottom: 1px solid var(--line); }
+  .order-num { font-family: var(--mono); font-size: 13px; color: var(--ink-3); padding-top: 6px; }
+  .order-steps .body { margin-top: 6px; }
+  .order-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
+  }
+  .order-facts div { border-top: 1px solid var(--line); padding-top: 12px; }
+  .order-facts dt { font-size: 11px; }
+  .order-facts dd {
+    margin: 6px 0 0;
+    font-family: var(--serif);
+    font-size: clamp(20px, 2vw, 26px);
+    font-weight: 320;
+    line-height: 1.1;
+  }
+  .order-facts dd.order-unit { margin-top: 4px; font-family: var(--sans); font-size: 13px; }
+
+  @media (min-width: 900px) {
+    .order-inner { grid-template-columns: 1fr 1.1fr; column-gap: 72px; row-gap: 48px; }
+    .order-facts { grid-column: 1 / -1; max-width: 720px; }
+  }
+</style>
