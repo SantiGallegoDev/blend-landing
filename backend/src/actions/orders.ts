@@ -80,6 +80,10 @@ export const orders = {
       if (!['pending', 'processing', 'attention', 'failed'].includes(o.status)) {
         throw new ActionError({ code: 'BAD_REQUEST', message: o.status === 'paid' ? 'Está pagado: usa "Reembolsar".' : 'Este pedido ya está cerrado.' });
       }
+      // Un pedido en "requiere atención" puede tener el pago acreditado: ese se reembolsa, no se cancela.
+      if (o.paidAt || o.mpStatus === 'processed') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Este pedido tiene un pago acreditado: usa "Reembolsar".' });
+      }
       if (o.mpOrderId && o.status !== 'failed') await cancelOrder(o.mpOrderId).catch(() => {});
       await setStatus(orderId, 'canceled', `Cancelado desde el panel por ${me.name}`, { userId: me.id });
       await audit({ userId: me.id, action: 'order.cancel', entity: 'order', entityId: orderId, ip: ipOf(ctx) });

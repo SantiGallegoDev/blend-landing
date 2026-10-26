@@ -311,7 +311,9 @@ export async function expireReservations() {
     if (o.mpOrderId) {
       // Antes de liberar, se pregunta: puede que se haya pagado y el webhook no llegó.
       const res = await syncFromMercadoPago(o.mpOrderId).catch(() => null);
-      if (res?.ok && res.status === 'paid') continue;
+      // Sin respuesta de Mercado Pago no se cancela nada: se reintenta en la próxima vuelta.
+      // Solo se cancela si sigue esperando el pago; pagado, en proceso (PSE) o cerrado ya lo aplicó setStatus.
+      if (!res || !res.ok || res.status !== 'pending') continue;
       await cancelOrder(o.mpOrderId).catch(() => {});
     }
     await setStatus(o.id, 'canceled', `La reserva venció a los ${RESERVATION_MINUTES} minutos sin pago`);
