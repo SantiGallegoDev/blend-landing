@@ -8,41 +8,50 @@ if (user?.twoFactorEnabled) return Astro.redirect('/admin');
 <AdminLayout title="Activar verificación en dos pasos" bare>
   <div class="card stack">
     <div class="stack-tight">
-      <h1>Verificación en dos pasos</h1>
+      <h1>Activa la verificación en dos pasos</h1>
       <p class="muted small">
-        Es obligatoria para usar el panel. Necesitas una app autenticadora en tu teléfono
+        Es obligatoria para usar el panel y se hace una sola vez. Ten a mano tu teléfono con una app autenticadora
         (Google Authenticator, Microsoft Authenticator, 1Password u otra).
       </p>
     </div>
+
+    <ol class="steps-nav" aria-label="Pasos">
+      <li data-step="1" aria-current="step">Tu contraseña</li>
+      <li data-step="2">Escanear el QR</li>
+      <li data-step="3">Códigos de respaldo</li>
+    </ol>
+
     <p class="alert alert-bad" id="error" role="alert" hidden></p>
 
     <form id="step-password" class="stack" novalidate>
       <label class="field">
-        <span>Confirma tu contraseña</span>
-        <input type="password" name="password" autocomplete="current-password" required />
+        <span>Paso 1 · Escribe tu contraseña del panel</span>
+        <input type="password" name="password" autocomplete="current-password" placeholder="La misma con la que acabas de entrar" required />
+        <small class="muted">Todavía no necesitas la app: el código de 6 dígitos se pide en el paso 2.</small>
       </label>
       <button type="submit" class="btn btn-solid">Continuar</button>
     </form>
 
     <form id="step-scan" class="stack" novalidate hidden>
-      <p class="small">1. Escanea este código con la app autenticadora.</p>
+      <p class="small"><strong>Paso 2 · Escanea este código</strong> con tu app autenticadora. Se agrega una cuenta llamada “Blend Admin”.</p>
+      <p class="alert alert-warn small">Si ya tenías una cuenta “Blend Admin” de antes, bórrala de la app: ya no sirve. No recargues esta página; cada recarga crea un código nuevo.</p>
       <div id="qr" class="qr" role="img" aria-label="Código QR para la app autenticadora"></div>
       <details class="small">
-        <summary>¿No puedes escanearlo? Escribe la clave</summary>
+        <summary>¿No puedes escanearlo? Escribe la clave a mano</summary>
         <code id="secret" class="secret"></code>
       </details>
       <label class="field">
-        <span>2. Escribe el código de 6 dígitos que muestra la app</span>
+        <span>Escribe el código de 6 dígitos que muestra la app para “Blend Admin”</span>
         <input class="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required />
       </label>
       <button type="submit" class="btn btn-solid">Activar</button>
     </form>
 
     <div id="step-codes" class="stack" hidden>
-      <p class="alert alert-ok">Verificación en dos pasos activada.</p>
+      <p class="alert alert-ok">Listo, la verificación en dos pasos quedó activada.</p>
       <p class="small">
-        Guarda estos <strong>códigos de respaldo</strong> en un lugar seguro (un gestor de contraseñas, por ejemplo).
-        Cada uno sirve una sola vez si pierdes el teléfono. No los volverás a ver.
+        <strong>Paso 3 · Guarda estos códigos de respaldo</strong> en un lugar seguro (un gestor de contraseñas, por ejemplo).
+        Cada uno sirve una sola vez para entrar si pierdes el teléfono. No los volverás a ver.
       </p>
       <ol id="codes" class="codes mono"></ol>
       <div class="row">
@@ -57,6 +66,20 @@ if (user?.twoFactorEnabled) return Astro.redirect('/admin');
 
 <style>
   .stack-tight { display: grid; gap: 4px; }
+  .steps-nav { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: paso; }
+  .steps-nav li {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: var(--cream);
+    color: var(--ink-3);
+    font-size: 12px;
+    text-align: center;
+    counter-increment: paso;
+  }
+  .steps-nav li::before { content: counter(paso) '. '; }
+  .steps-nav li[aria-current='step'] { background: var(--ink); color: var(--warm); }
+  .steps-nav li.done { color: var(--ok); }
   .qr { width: 200px; justify-self: center; }
   .qr :global(svg) { display: block; width: 100%; height: auto; }
   .secret { display: block; margin-top: 8px; word-break: break-all; padding: 8px; background: var(--cream); border-radius: 8px; }
@@ -78,12 +101,32 @@ if (user?.twoFactorEnabled) return Astro.redirect('/admin');
     errorBox.hidden = !msg;
   };
 
+  const setStep = (n: number) => {
+    document.querySelectorAll<HTMLElement>('.steps-nav li').forEach((li) => {
+      const step = Number(li.dataset.step);
+      if (step === n) li.setAttribute('aria-current', 'step');
+      else li.removeAttribute('aria-current');
+      li.classList.toggle('done', step < n);
+    });
+  };
+
   stepPassword.addEventListener('submit', async (e) => {
     e.preventDefault();
     showError(null);
-    const password = String(new FormData(stepPassword).get('password'));
+    const field = stepPassword.elements.namedItem('password') as HTMLInputElement;
+    const password = field.value;
+    // Error típico: escribir aquí el código de la app. Las contraseñas del panel tienen 12+ caracteres.
+    if (/^\s*\d{6}\s*$/.test(password)) {
+      return showError('Eso parece un código de la app. En este paso va tu contraseña del panel; el código se pide en el paso 2.');
+    }
     const { data, error } = await authClient.twoFactor.enable({ password });
+    if (error?.code === 'INVALID_PASSWORD') {
+      field.value = '';
+      field.focus();
+      return showError('Esa no es tu contraseña del panel. Escribe la misma con la que iniciaste sesión.');
+    }
     if (error || !data || data.method !== 'totp') return showError(errorMessage(error));
+    setStep(2);
     backupCodes = data.backupCodes;
     const qr = document.getElementById('qr')!;
     qr.replaceChildren(new DOMParser().parseFromString(renderSVG(data.totpURI), 'image/svg+xml').documentElement);
@@ -103,6 +146,7 @@ if (user?.twoFactorEnabled) return Astro.redirect('/admin');
     list.replaceChildren(...backupCodes.map((c) => Object.assign(document.createElement('li'), { textContent: c })));
     stepScan.hidden = true;
     stepCodes.hidden = false;
+    setStep(3);
   });
 
   document.getElementById('copy')!.addEventListener('click', async (e) => {
