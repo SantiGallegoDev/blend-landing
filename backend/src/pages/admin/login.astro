@@ -25,6 +25,13 @@ const welcome = params.get('bienvenida');
         <span>Contraseña</span>
         <input type="password" name="password" autocomplete="current-password" required />
       </label>
+      <label class="remember">
+        <input type="checkbox" name="remember" id="remember" />
+        <span>
+          Recordar este navegador por 30 días
+          <small class="muted">No te pide el código de la app ni cierra la sesión. Úsalo solo en tu computador o celular personal.</small>
+        </span>
+      </label>
       <button type="submit" class="btn btn-solid">Continuar</button>
       <button type="button" class="btn" id="passkey">Entrar con passkey</button>
     </form>
@@ -43,6 +50,9 @@ const welcome = params.get('bienvenida');
 <style>
   .stack-tight { display: grid; gap: 4px; }
   #toggle-backup { justify-self: center; }
+  .remember { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+  .remember input { margin-top: 3px; flex: none; }
+  .remember small { display: block; margin-top: 2px; font-size: 12px; }
 </style>
 
 <script>
@@ -58,7 +68,14 @@ const welcome = params.get('bienvenida');
   const codeInput = codeStep.elements.namedItem('code') as HTMLInputElement;
   const codeLabel = document.getElementById('code-label')!;
   const toggleBackup = document.getElementById('toggle-backup')!;
+  const rememberBox = document.getElementById('remember') as HTMLInputElement;
   let useBackup = false;
+
+  // Con la casilla, la sesión recién creada se alarga a 30 días antes de entrar al panel.
+  const enter = async () => {
+    if (rememberBox.checked) await fetch('/admin/recordar', { method: 'POST' }).catch(() => {});
+    location.assign(target);
+  };
 
   const showError = (msg: string | null) => {
     errorBox.textContent = msg ?? '';
@@ -85,7 +102,8 @@ const welcome = params.get('bienvenida');
       codeInput.focus();
       return;
     }
-    location.assign(target);
+    // Navegador de confianza: Better Auth no pidió el código.
+    await enter();
   });
 
   codeStep.addEventListener('submit', async (e) => {
@@ -93,15 +111,16 @@ const welcome = params.get('bienvenida');
     showError(null);
     const code = codeInput.value.trim();
     busy(codeStep, true);
+    const trustDevice = rememberBox.checked;
     const { error } = useBackup
-      ? await authClient.twoFactor.verifyBackupCode({ code })
-      : await authClient.twoFactor.verifyTotp({ code });
+      ? await authClient.twoFactor.verifyBackupCode({ code, trustDevice })
+      : await authClient.twoFactor.verifyTotp({ code, trustDevice });
     busy(codeStep, false);
     if (error) {
       codeInput.select();
       return showError(errorMessage(error));
     }
-    location.assign(target);
+    await enter();
   });
 
   toggleBackup.addEventListener('click', () => {
@@ -121,6 +140,6 @@ const welcome = params.get('bienvenida');
     showError(null);
     const { error } = await authClient.signIn.passkey();
     if (error) return showError('No se pudo entrar con la passkey.');
-    location.assign(target);
+    await enter();
   });
 </script>

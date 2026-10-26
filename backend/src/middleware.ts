@@ -1,11 +1,14 @@
 import { defineMiddleware } from 'astro:middleware';
-import { auth } from './lib/auth';
+import { auth, REMEMBER_DAYS } from './lib/auth';
 import { env, isProd } from './env';
 import { startJobs } from './lib/jobs';
 
 startJobs();
 
 const MAX_SESSION_MS = 12 * 60 * 60 * 1000;
+const MAX_REMEMBERED_MS = REMEMBER_DAYS * 24 * 60 * 60 * 1000;
+// Una sesión normal nunca vence a más de 30 min; si vence más lejos, es una sesión recordada.
+const REMEMBERED_AFTER_MS = 60 * 60 * 1000;
 
 // Rutas del panel que no exigen sesión.
 const PUBLIC_ADMIN = [/^\/admin\/login\/?$/, /^\/admin\/invitacion\/[^/]+\/?$/, /^\/admin\/api\/auth\//];
@@ -60,14 +63,17 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     return securityHeaders(await next(), 'admin');
   }
 
-  const data = await auth.api.getSession({ headers: ctx.request.headers });
+  // returnHeaders: cuando Better Auth renueva la sesión (30 min deslizantes) manda la cookie nueva;
+  // hay que pasarla al navegador o la cookie vence aunque haya actividad.
+  const { headers: authHeaders, response: data } = await auth.api.getSession({ headers: ctx.request.headers, returnHeaders: true });
   if (!data || data.user.disabled) {
     if (pathname.startsWith('/_actions/')) return new Response(null, { status: 401 });
     return ctx.redirect(`/admin/login?next=${encodeURIComponent(pathname)}`);
   }
 
-  // Tope absoluto: ni una sesión activa dura más de 12 h.
-  if (Date.now() - new Date(data.session.createdAt).getTime() > MAX_SESSION_MS) {
+  // Tope absoluto: 12 h para una sesión normal, REMEMBER_DAYS para una recordada.
+  const remembered = new Date(data.session.expiresAt).getTime() - Date.now() > REMEMBERED_AFTER_MS;
+  if (Date.now() - new Date(data.session.createdAt).getTime() > (remembered ? MAX_REMEMBERED_MS : MAX_SESSION_MS)) {
     await auth.api.revokeSession({ headers: ctx.request.headers, body: { token: data.session.token } });
     return ctx.redirect('/admin/login?expirada=1');
   }
@@ -78,5 +84,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   ctx.locals.user = data.user;
   ctx.locals.session = data.session;
-  return securityHeaders(await next(), 'admin');
+  const res = securityHeaders(await next(), 'admin');
+  for (const cookie of authHeaders?.getSetCookie() ?? []) res.headers.append('Set-Cookie', cookie);
+  return res;
 });

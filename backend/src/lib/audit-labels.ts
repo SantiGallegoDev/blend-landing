@@ -8,6 +8,7 @@ export const actionLabel: Record<string, string> = {
   'auth.backup_codes': 'Generó códigos de respaldo',
   'auth.passkey_add': 'Agregó una passkey',
   'auth.passkey_delete': 'Eliminó una passkey',
+  'auth.remember': 'Pidió recordar este navegador',
   'session.revoke': 'Cerró una sesión',
   'invitation.create': 'Envió una invitación',
   'invitation.revoke': 'Revocó una invitación',

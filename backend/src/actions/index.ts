@@ -5,6 +5,7 @@ import { db, schema } from '../db';
 import { roles } from '../db/schema';
 import { env } from '../env';
 import { audit } from '../lib/audit';
+import { forgetTrustedDevices } from '../lib/auth';
 import { sendMail } from '../lib/mail';
 import { invitationEmail } from '../lib/email-templates';
 import { roleLabel } from '../lib/format';
@@ -94,8 +95,11 @@ export const server = {
         }
       }
       await db.update(schema.user).set({ disabled, updatedAt: new Date() }).where(eq(schema.user.id, userId));
-      // Desactivar cierra todas sus sesiones al instante.
-      if (disabled) await db.delete(schema.session).where(eq(schema.session.userId, userId));
+      // Desactivar cierra todas sus sesiones al instante, también las recordadas, y olvida sus navegadores de confianza.
+      if (disabled) {
+        await db.delete(schema.session).where(eq(schema.session.userId, userId));
+        await forgetTrustedDevices(userId);
+      }
       await audit({ userId: me.id, action: disabled ? 'user.disable' : 'user.enable', entity: 'user', entityId: userId, ip: ipOf(ctx) });
     },
   }),

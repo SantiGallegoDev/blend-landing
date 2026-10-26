@@ -7,7 +7,7 @@ import { twoFactor } from 'better-auth/plugins/two-factor';
 import { passkey } from '@better-auth/passkey';
 import { hash, verify } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, like, sql } from 'drizzle-orm';
 import { db, schema } from '../db';
 import { env, isProd } from '../env';
 import { audit } from './audit';
@@ -18,6 +18,18 @@ import { deviceName } from './format';
 
 const MAX_FAILURES = 5;
 const BASE_LOCK_MINUTES = 15;
+
+// "Recordar este navegador": la sesión dura estos días y el 2FA no se vuelve a pedir en ese navegador
+// (la contraseña sí). Sin la casilla, las sesiones siguen con 30 min de inactividad y 12 h como máximo.
+export const REMEMBER_DAYS = 30;
+
+// Olvida los navegadores de confianza del 2FA: al cambiar la contraseña o desactivar la cuenta.
+// Better Auth los guarda en verification como "trust-device-…" con el id del usuario.
+export async function forgetTrustedDevices(userId: string) {
+  await db
+    .delete(schema.verification)
+    .where(and(like(schema.verification.identifier, 'trust-device-%'), eq(schema.verification.value, userId)));
+}
 
 // Bloqueo progresivo por cuenta: 15 min tras 5 fallos, y se duplica con cada fallo extra (máx. 24 h).
 async function registerFailure(email: string) {
@@ -88,6 +100,7 @@ export const auth = betterAuth({
   },
   session: {
     // Vence a los 30 min sin actividad; el tope absoluto de 12 h lo aplica el middleware.
+    // Una sesión recordada se alarga a REMEMBER_DAYS en /admin/recordar, justo después de entrar.
     expiresIn: 30 * 60,
     updateAge: 5 * 60,
     freshAge: 10 * 60,
@@ -115,6 +128,7 @@ export const auth = betterAuth({
       issuer: 'Blend Admin',
       backupCodeOptions: { amount: 10 },
       accountLockout: { maxFailedAttempts: MAX_FAILURES, durationSeconds: BASE_LOCK_MINUTES * 60 },
+      trustDeviceMaxAge: REMEMBER_DAYS * 24 * 3600,
     }),
     passkey({
       rpID: new URL(env.ADMIN_ORIGIN).hostname,
@@ -140,6 +154,10 @@ export const auth = betterAuth({
       const audited = AUDITED_PATHS[ctx.path];
       if (audited && !isAPIError(ctx.context.returned)) {
         await audit({ userId: ctx.context.session?.user.id, action: audited, entity: 'user', ip: clientIp(ctx.request) });
+      }
+      // Contraseña nueva: los navegadores recordados vuelven a pedir el código de la app.
+      if (ctx.path === '/change-password' && !isAPIError(ctx.context.returned) && ctx.context.session) {
+        await forgetTrustedDevices(ctx.context.session.user.id);
       }
       if (ctx.path !== '/sign-in/email') return;
       const email = String(ctx.body?.email ?? '').trim().toLowerCase();
