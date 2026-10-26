@@ -6,8 +6,7 @@ export const site = {
   // WhatsApp del catálogo: 311 366 7282 (Colombia).
   whatsapp: '573113667282',
   whatsappDisplay: '311 366 7282',
-  // ⚠︎ Placeholder: el catálogo no trae correo. Reemplazar antes de publicar.
-  email: 'hola@blend.co',
+  email: 'ventas@univerxoblend.com',
   instagram: 'univerxo_blend',
   city: 'Armenia, Quindío',
   deliveryArea: 'Armenia y alrededores',
