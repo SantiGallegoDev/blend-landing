@@ -131,10 +131,12 @@ export const catalog = {
       fee: z.coerce.number({ error: 'Escribe el valor del domicilio' }).int('Sin decimales').min(0, 'No puede ser negativo').max(1_000_000),
       // Arreglo simple: así Astro lee todas las casillas marcadas (getAll).
       cities: z.array(z.enum(QUINDIO)).default([]),
-      note: z.string().trim().max(200).default(''),
+      // Opcional: Astro manda un campo vacío como undefined solo si el esquema es optional (con default llega null).
+      note: z.string().trim().max(200).optional(),
     }),
-    handler: async (input, ctx) => {
+    handler: async ({ note, ...rest }, ctx) => {
       const me = requireUser(ctx, 'productos');
+      const input = { ...rest, note: note ?? '' };
       if (input.cities.length === 0) throw new ActionError({ code: 'BAD_REQUEST', message: 'Elige al menos un municipio.' });
       const before = await getDelivery();
       await saveDelivery(input);
