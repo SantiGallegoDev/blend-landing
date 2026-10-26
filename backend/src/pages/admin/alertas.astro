@@ -111,6 +111,7 @@ const sendLabel: Record<string, [string, string]> = {
             <a class="btn" href={link.data.private} target="_blank" rel="noopener">Recibirlas yo, en privado</a>
           </div>
           <ul class="small muted hints">
+            <li><strong>En privado:</strong> el botón abre el chat con el bot; toca <em>Iniciar</em>. Si ya habías hablado con el bot, basta con pegarle el código en el chat.</li>
             <li><strong>Grupo:</strong> el botón abre Telegram, eliges el grupo y el bot entra con el código. Si el bot ya estaba en el grupo, escribe ahí <code>/start@{link.data.username} {link.data.code}</code>.</li>
             <li><strong>Canal:</strong> agrega a @{link.data.username} como administrador del canal y publica <code>/vincular {link.data.code}</code>.</li>
             <li>El bot responde “Listo” en el chat. Después <a href="/admin/alertas">actualiza esta página</a> para verlo en la lista.</li>

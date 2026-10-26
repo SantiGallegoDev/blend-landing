@@ -125,6 +125,8 @@ async function reply(chat: TgChat, text: string) {
 
 // /start CODIGO, /start@bot CODIGO o /vincular CODIGO.
 const COMMAND = /^\/(start|vincular)(?:@(\w+))?(?:\s+([A-Za-z0-9_-]{4,64}))?\s*$/i;
+// El código pegado solo, como lo muestra el panel (10 caracteres).
+const BARE_CODE = /^[A-Za-z0-9]{10}$/;
 
 export async function handleUpdate(update: TgUpdate) {
   const member = update.my_chat_member;
@@ -155,14 +157,27 @@ export async function handleUpdate(update: TgUpdate) {
     return;
   }
 
-  const m = msg.text?.match(COMMAND);
-  if (!m) return;
-  const [, , mention, code] = m;
-  if (mention && mention.toLowerCase() !== (await getBot()).username.toLowerCase()) return;
+  const text = msg.text?.trim() ?? '';
+  const isPrivate = msg.chat.type === 'private';
+  const m = text.match(COMMAND);
+  let code = m?.[3];
+  if (m) {
+    const mention = m[2];
+    if (mention && mention.toLowerCase() !== (await getBot()).username.toLowerCase()) return;
+  } else if (isPrivate && BARE_CODE.test(text)) {
+    // En privado basta con pegar el código solo, sin /start.
+    code = text;
+  } else if (!isPrivate || !text) {
+    // En grupos y canales solo se atienden comandos dirigidos al bot.
+    return;
+  }
 
   if (!code) {
-    if (msg.chat.type === 'private') {
-      await reply(msg.chat, 'Hola, soy el bot de alertas de <b>Blend</b>. Para recibir los avisos de compras, pide un código en el panel → Alertas.');
+    if (isPrivate) {
+      await reply(
+        msg.chat,
+        'Hola, soy el bot de alertas de <b>Blend</b>. Para recibir aquí los avisos de compras, genera un código en el panel → Alertas y envíamelo en este chat.',
+      );
     }
     return;
   }
