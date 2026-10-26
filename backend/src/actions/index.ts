@@ -6,6 +6,8 @@ import { roles } from '../db/schema';
 import { env } from '../env';
 import { audit } from '../lib/audit';
 import { sendMail } from '../lib/mail';
+import { invitationEmail } from '../lib/email-templates';
+import { roleLabel } from '../lib/format';
 import { hashToken, newToken } from '../lib/tokens';
 import { createAdminUser } from '../lib/users';
 import { alerts } from './alerts';
@@ -48,18 +50,8 @@ export const server = {
         expiresAt: new Date(Date.now() + INVITE_HOURS * 3600_000),
       });
       await audit({ userId: me.id, action: 'invitation.create', entity: 'invitation', entityId: id, after: { email, role }, ip: ipOf(ctx) });
-      await sendMail({
-        to: email,
-        subject: 'Te invitaron al panel de Blend',
-        text: [
-          `${me.name} te invitó al panel de administración de Blend con el rol "${role}".`,
-          '',
-          `Crea tu cuenta aquí (el enlace vence en ${INVITE_HOURS} horas y sirve una sola vez):`,
-          `${env.ADMIN_ORIGIN}/admin/invitacion/${token}`,
-          '',
-          'Si no esperabas este correo, ignóralo.',
-        ].join('\n'),
-      });
+      const mail = invitationEmail({ inviterName: me.name, roleLabel: roleLabel[role], url: `${env.ADMIN_ORIGIN}/admin/invitacion/${token}`, hours: INVITE_HOURS });
+      await sendMail({ to: email, subject: mail.subject, text: mail.text, html: mail.html });
       return { email };
     },
   }),

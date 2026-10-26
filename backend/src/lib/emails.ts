@@ -8,8 +8,8 @@ const MAX_ATTEMPTS = 5;
 // Correos con enlaces de descarga: una vez enviados se borra el cuerpo para no dejar tokens en la base.
 const SENSITIVE = new Set(['customer_paid', 'ebook_resend']);
 
-export async function queueEmail(m: { orderId?: string; kind: string; to: string; subject: string; body: string }) {
-  const [row] = await db.insert(schema.emailLog).values({ ...m, orderId: m.orderId ?? null }).returning({ id: schema.emailLog.id });
+export async function queueEmail(m: { orderId?: string; kind: string; to: string; subject: string; body: string; html?: string }) {
+  const [row] = await db.insert(schema.emailLog).values({ ...m, html: m.html ?? null, orderId: m.orderId ?? null }).returning({ id: schema.emailLog.id });
   await deliver(row.id);
 }
 
@@ -17,7 +17,7 @@ async function deliver(id: number) {
   const mail = await db.query.emailLog.findFirst({ where: eq(schema.emailLog.id, id) });
   if (!mail || mail.status === 'sent') return;
   try {
-    await sendMail({ to: mail.to, subject: mail.subject, text: mail.body });
+    await sendMail({ to: mail.to, subject: mail.subject, text: mail.body, html: mail.html });
     await db
       .update(schema.emailLog)
       .set({
@@ -25,7 +25,7 @@ async function deliver(id: number) {
         sentAt: new Date(),
         attempts: mail.attempts + 1,
         error: null,
-        ...(SENSITIVE.has(mail.kind) ? { body: '(contenido omitido tras el envío: tenía enlaces de descarga)' } : {}),
+        ...(SENSITIVE.has(mail.kind) ? { body: '(contenido omitido tras el envío: tenía enlaces de descarga)', html: null } : {}),
       })
       .where(eq(schema.emailLog.id, id));
   } catch (err) {

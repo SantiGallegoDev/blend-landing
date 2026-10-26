@@ -44,3 +44,11 @@ export const fulfillmentLabel: Record<string, string> = {
   delivered: 'Entregado',
   canceled: 'Entrega cancelada',
 };
+
+// Nombre legible a partir del user agent, sin librerías ("Chrome en Windows").
+export function deviceName(ua?: string | null) {
+  if (!ua) return 'Dispositivo desconocido';
+  const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Otro';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+  return `${browser} en ${os}`;
+}

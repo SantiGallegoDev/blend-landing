@@ -5,6 +5,7 @@ import { db, schema } from '../db';
 import { fulfillmentEnum } from '../db/schema';
 import { audit } from '../lib/audit';
 import { queueEmail } from '../lib/emails';
+import { ebookLinksEmail } from '../lib/email-templates';
 import { moveStock } from '../lib/inventory';
 import { cancelOrder, MercadoPagoError, refundOrder } from '../lib/mercadopago';
 import { createDownloadLinks, DOWNLOAD_DAYS, DOWNLOAD_LIMIT, orderNumber, setStatus, syncFromMercadoPago } from '../lib/orders';
@@ -118,21 +119,8 @@ export const orders = {
       const o = await load(orderId);
       if (o.status !== 'paid' || !o.hasDigital) throw new ActionError({ code: 'BAD_REQUEST', message: 'Solo para pedidos pagados con e-books.' });
       const links = await createDownloadLinks(orderId);
-      await queueEmail({
-        orderId,
-        kind: 'ebook_resend',
-        to: o.email,
-        subject: `Tus e-books de Blend (pedido ${orderNumber(o.number)})`,
-        body: [
-          `Hola ${o.customerName.split(' ')[0]},`,
-          '',
-          `Aquí están de nuevo tus enlaces de descarga. Cada uno sirve ${DOWNLOAD_LIMIT} descargas durante ${DOWNLOAD_DAYS} días; los enlaces anteriores ya no funcionan.`,
-          '',
-          ...links.map((l) => `${l.name}: ${l.url}`),
-          '',
-          'Blend',
-        ].join('\n'),
-      });
+      const mail = ebookLinksEmail({ number: orderNumber(o.number), customerName: o.customerName }, links, { limit: DOWNLOAD_LIMIT, days: DOWNLOAD_DAYS });
+      await queueEmail({ orderId, kind: 'ebook_resend', to: o.email, subject: mail.subject, body: mail.text, html: mail.html });
       await db.insert(schema.orderEvent).values({ orderId, type: 'downloads', message: 'Enlaces de descarga reenviados', userId: me.id });
       await audit({ userId: me.id, action: 'order.resend_downloads', entity: 'order', entityId: orderId, ip: ipOf(ctx) });
     },

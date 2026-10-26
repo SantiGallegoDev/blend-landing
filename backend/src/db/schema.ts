@@ -357,6 +357,7 @@ export const emailLog = pgTable('email_log', {
   to: text('to').notNull(),
   subject: text('subject').notNull(),
   body: text('body').notNull(),
+  html: text('html'),
   status: text('status').notNull().default('pending'),
   attempts: integer('attempts').notNull().default(0),
   error: text('error'),

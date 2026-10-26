@@ -4,7 +4,7 @@ import { desc, eq } from 'drizzle-orm';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db, schema } from '../../db';
 import { auth } from '../../lib/auth';
-import { formatDate, roleLabel } from '../../lib/format';
+import { deviceName, formatDate, roleLabel } from '../../lib/format';
 
 const me = Astro.locals.user!;
 const current = Astro.locals.session!;
@@ -17,13 +17,6 @@ const passkeys = await db.query.passkey.findMany({
   orderBy: [desc(schema.passkey.createdAt)],
 });
 
-// Nombre legible a partir del user agent, sin librerías.
-function device(ua?: string | null) {
-  if (!ua) return 'Dispositivo desconocido';
-  const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Otro';
-  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
-  return `${browser} en ${os}`;
-}
 ---
 <AdminLayout title="Mi cuenta">
   <div>
@@ -68,7 +61,7 @@ function device(ua?: string | null) {
       {sessions.map((s) => (
         <li>
           <div>
-            <div>{device(s.userAgent)}{s.id === current.id && <span class="badge badge-ok">Esta sesión</span>}</div>
+            <div>{deviceName(s.userAgent)}{s.id === current.id && <span class="badge badge-ok">Esta sesión</span>}</div>
             <div class="small muted">IP {s.ipAddress || '—'} · iniciada {formatDate(s.createdAt)}</div>
           </div>
           {s.id !== current.id && (

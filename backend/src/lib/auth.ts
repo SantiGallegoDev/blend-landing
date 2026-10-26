@@ -13,6 +13,8 @@ import { env, isProd } from '../env';
 import { audit } from './audit';
 import { clientIp } from './ip';
 import { sendMail } from './mail';
+import { newDeviceEmail } from './email-templates';
+import { deviceName } from './format';
 
 const MAX_FAILURES = 5;
 const BASE_LOCK_MINUTES = 15;
@@ -172,20 +174,14 @@ export const auth = betterAuth({
           if (isNewDevice && priorDevices > 1) {
             const u = await db.query.user.findFirst({ where: eq(schema.user.id, session.userId) });
             if (u) {
-              await sendMail({
-                to: u.email,
-                subject: 'Nuevo inicio de sesión en el panel de Blend',
-                text: [
-                  `Hola ${u.name},`,
-                  '',
-                  'Se inició sesión en tu cuenta del panel de Blend desde un dispositivo nuevo.',
-                  `Navegador: ${session.userAgent ?? 'desconocido'}`,
-                  `IP: ${session.ipAddress ?? 'desconocida'}`,
-                  `Fecha: ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}`,
-                  '',
-                  'Si no fuiste tú, cambia tu contraseña y cierra las demás sesiones desde "Mi cuenta", y avisa al dueño de la cuenta.',
-                ].join('\n'),
-              }).catch((err) => console.error('aviso de inicio de sesión', err instanceof Error ? err.message : err));
+              const mail = newDeviceEmail({
+                name: u.name,
+                device: deviceName(session.userAgent),
+                ip: session.ipAddress ?? 'desconocida',
+                when: new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'long', timeStyle: 'short' }),
+                accountUrl: `${env.ADMIN_ORIGIN}/admin/cuenta`,
+              });
+              await sendMail({ to: u.email, subject: mail.subject, text: mail.text, html: mail.html }).catch((err) => console.error('aviso de inicio de sesión', err instanceof Error ? err.message : err));
             }
           }
         },

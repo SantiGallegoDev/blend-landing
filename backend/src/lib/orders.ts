@@ -8,6 +8,7 @@ import type { OrderStatus } from '../db/schema';
 import { env } from '../env';
 import { getDelivery, QUINDIO } from './delivery';
 import { queueEmail } from './emails';
+import { orderPaidEmail, teamOrderPaidEmail, type EmailItem, type OrderView } from './email-templates';
 import { formatCOP } from './format';
 import { moveStock, OutOfStockError } from './inventory';
 import { cancelOrder, createCheckoutOrder, getOrder, mapStatus, MercadoPagoError, type MpOrder } from './mercadopago';
@@ -346,12 +347,43 @@ export async function createDownloadLinks(orderId: string) {
   return links;
 }
 
-function summary(o: Order, items: (typeof schema.orderItem.$inferSelect)[]) {
-  return [
-    ...items.map((i) => `· ${i.quantity} × ${i.name}${i.variantName ? ` (${i.variantName})` : ''} — ${formatCOP(i.total)}`),
-    ...(o.deliveryFee ? [`· Domicilio ${o.city} — ${formatCOP(o.deliveryFee)}`] : []),
-    `Total: ${formatCOP(o.total)}`,
-  ].join('\n');
+// Datos del pedido para las plantillas de correo, con el color de cada sabor o portada.
+export async function emailOrderData(o: Order, items: (typeof schema.orderItem.$inferSelect)[]) {
+  const variantIds = items.flatMap((i) => (i.bundleContents ?? []).map((c) => c.variantId));
+  const viaVariant = variantIds.length
+    ? await db.select({ id: schema.variant.id, productId: schema.variant.productId }).from(schema.variant).where(inArray(schema.variant.id, variantIds))
+    : [];
+  const productIds = [...new Set([...items.flatMap((i) => (i.productId ? [i.productId] : [])), ...viaVariant.map((v) => v.productId)])];
+  const products = productIds.length
+    ? await db.select({ id: schema.product.id, flavor: schema.product.flavorColor, cover: schema.product.coverColor }).from(schema.product).where(inArray(schema.product.id, productIds))
+    : [];
+  const colorOf = (productId?: string | null) => {
+    const p = products.find((x) => x.id === productId);
+    return p?.flavor ?? p?.cover ?? null;
+  };
+  const view: OrderView = {
+    number: orderNumber(o.number),
+    customerName: o.customerName,
+    email: o.email,
+    phone: o.phone,
+    hasPhysical: o.hasPhysical,
+    hasDigital: o.hasDigital,
+    city: o.city,
+    address: o.address,
+    deliveryNotes: o.deliveryNotes,
+    subtotal: o.subtotal,
+    deliveryFee: o.deliveryFee,
+    total: o.total,
+  };
+  const list: EmailItem[] = items.map((i) => ({
+    name: i.name,
+    detail: i.variantName,
+    quantity: i.quantity,
+    total: i.total,
+    isDigital: i.isDigital,
+    color: colorOf(i.productId ?? viaVariant.find((v) => v.id === i.bundleContents?.[0]?.variantId)?.productId),
+  }));
+  return { view, list };
 }
 
 async function onPaid(orderId: string) {
@@ -360,46 +392,14 @@ async function onPaid(orderId: string) {
   const items = await db.query.orderItem.findMany({ where: eq(schema.orderItem.orderId, o.id) });
   const links = o.hasDigital ? await createDownloadLinks(o.id) : [];
   const n = orderNumber(o.number);
+  const { view, list } = await emailOrderData(o, items);
 
-  await queueEmail({
-    orderId: o.id,
-    kind: 'customer_paid',
-    to: o.email,
-    subject: `Tu pedido ${n} está confirmado`,
-    body: [
-      `Hola ${o.customerName.split(' ')[0]},`,
-      '',
-      `Recibimos tu pago. Este es tu pedido ${n}:`,
-      '',
-      summary(o, items),
-      ...(links.length
-        ? ['', 'Tus e-books (cada enlace sirve ' + DOWNLOAD_LIMIT + ' descargas durante ' + DOWNLOAD_DAYS + ' días):', ...links.map((l) => `${l.name}: ${l.url}`)]
-        : []),
-      ...(o.hasPhysical
-        ? ['', `Entrega en ${o.address}, ${o.city} (Quindío).`, 'Te escribimos por WhatsApp para coordinar la hora.']
-        : []),
-      '',
-      `¿Dudas? Responde este correo o escríbenos por WhatsApp.`,
-      '',
-      'Blend',
-    ].join('\n'),
-  });
+  const customer = orderPaidEmail(view, list, links, { limit: DOWNLOAD_LIMIT, days: DOWNLOAD_DAYS });
+  await queueEmail({ orderId: o.id, kind: 'customer_paid', to: o.email, subject: customer.subject, body: customer.text, html: customer.html });
 
   if (env.ORDERS_NOTIFY_EMAIL) {
-    await queueEmail({
-      orderId: o.id,
-      kind: 'team_paid',
-      to: env.ORDERS_NOTIFY_EMAIL,
-      subject: `Nuevo pedido pagado ${n} · ${formatCOP(o.total)}`,
-      body: [
-        `${o.customerName} · ${o.phone} · ${o.email}`,
-        o.hasPhysical ? `Entrega: ${o.address}, ${o.city}${o.deliveryNotes ? ` (${o.deliveryNotes})` : ''}` : 'Solo digital (se entregó por correo).',
-        '',
-        summary(o, items),
-        '',
-        `Ver en el panel: ${env.ADMIN_ORIGIN}/admin/pedidos/${o.id}`,
-      ].join('\n'),
-    });
+    const team = teamOrderPaidEmail(view, list, `${env.ADMIN_ORIGIN}/admin/pedidos/${o.id}`);
+    await queueEmail({ orderId: o.id, kind: 'team_paid', to: env.ORDERS_NOTIFY_EMAIL, subject: team.subject, body: team.text, html: team.html });
   }
 
   // Aviso al equipo por Telegram. Nunca debe afectar la confirmación del pago.

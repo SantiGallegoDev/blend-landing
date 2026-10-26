@@ -13,7 +13,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "create-owner": "tsx scripts/create-owner.ts",
     "seed:catalog": "tsx scripts/seed-catalog.ts",
-    "catalog": "tsx scripts/catalog-transfer.ts"
+    "catalog": "tsx scripts/catalog-transfer.ts",
+    "email:preview": "tsx scripts/email-preview.ts"
   },
   "engines": {
     "node": ">=22.12.0"
