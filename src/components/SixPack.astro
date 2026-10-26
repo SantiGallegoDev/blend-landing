@@ -5,6 +5,7 @@ import Photo from './Photo.astro';
 import { getDrinks } from '../data/catalog';
 import { site, drinkLines, formatCOP, perUnit, waLink, type DrinkFormat } from '../data/site';
 import { cartEnabled, getSixPack } from '../data/shop';
+import { API_URL } from '../data/blend-api';
 
 const pack = await getSixPack();
 const flowDrinks = (await getDrinks()).filter((d) => d.data.line === 'flow');
@@ -40,11 +41,11 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
         </p>
 
         {builder ? (
-          <div class="pack-builder" data-pack data-bundle={pack!.id} data-size={pack!.size} data-reveal="fade-up">
+          <div class="pack-builder" data-pack data-bundle={pack!.id} data-size={pack!.size} data-api={API_URL} data-reveal="fade-up">
             <ul class="pack-picks" aria-label="Sabores de tu caja">
               {flavors.map(({ drink: d, variantId }) => (
                 <li class="pack-pick flavored" style={`--flavor:${d.data.flavor}`} data-variant={variantId}>
-                  <a href={`/bebidas/${d.id}`} class="pack-pick-name"><span class="chip-dot"></span>{d.data.name}</a>
+                  <a href={`/bebidas/${d.id}`} class="pack-pick-name"><span class="chip-dot"></span>{d.data.name}<small class="pack-out" hidden>Agotado</small></a>
                   <span class="pack-step" role="group" aria-label={`Latas de ${d.data.name}`}>
                     <button type="button" data-step="-1" aria-label={`Quitar una ${d.data.name}`}>−</button>
                     <output data-count>0</output>
@@ -161,6 +162,8 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
   .pack-step button:disabled { opacity: .35; cursor: default; }
   .pack-step output { min-width: 22px; text-align: center; font-family: var(--mono); }
   .pack-left { color: var(--ink-2); }
+  .pack-out { margin-left: 2px; font-size: 12px; font-weight: 400; color: var(--ink-2); }
+  .pack-pick.is-soldout .pack-pick-name { opacity: .55; }
 
   .pack-buy {
     display: grid;
@@ -192,6 +195,7 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
 
 <script>
   import { addBundle } from '../scripts/cart';
+  import { loadStock } from '../scripts/stock';
 
   document.querySelectorAll<HTMLElement>('[data-pack]').forEach((box) => {
     const panel = box.closest('.pack-copy');
@@ -202,6 +206,8 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
     const add = panel?.querySelector<HTMLButtonElement>('[data-pack-add]');
     const added = panel?.querySelector<HTMLElement>('[data-pack-added]');
     const counts = new Map(rows.map((r) => [r.dataset.variant!, 0]));
+    // Latas disponibles por sabor (sin dato = sin límite).
+    const limits = new Map<string, number>();
 
     const render = () => {
       const total = [...counts.values()].reduce((a, b) => a + b, 0);
@@ -209,7 +215,7 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
         const n = counts.get(r.dataset.variant!)!;
         r.querySelector('output')!.value = String(n);
         r.querySelector<HTMLButtonElement>('[data-step="-1"]')!.disabled = n === 0;
-        r.querySelector<HTMLButtonElement>('[data-step="1"]')!.disabled = total >= size;
+        r.querySelector<HTMLButtonElement>('[data-step="1"]')!.disabled = total >= size || n >= (limits.get(r.dataset.variant!) ?? size);
       });
       const missing = size - total;
       if (left) left.textContent = missing === size ? `Elige ${size} latas.` : missing === 1 ? 'Te falta 1 lata.' : missing > 0 ? `Te faltan ${missing} latas.` : 'Tu caja está completa.';
@@ -234,6 +240,20 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
       render();
       if (added) added.hidden = false;
     });
+
+    if (box.dataset.api) {
+      loadStock(box.dataset.api).then((stock) => {
+        if (!stock) return;
+        rows.forEach((r) => {
+          const n = stock[r.dataset.variant!];
+          if (n == null) return;
+          limits.set(r.dataset.variant!, n);
+          r.classList.toggle('is-soldout', n === 0);
+          r.querySelector<HTMLElement>('.pack-out')?.toggleAttribute('hidden', n !== 0);
+        });
+        render();
+      });
+    }
 
     render();
   });

@@ -8,6 +8,7 @@ import DrinkCard from '../../components/DrinkCard.astro';
 import { getDrinks } from '../../data/catalog';
 import { site, drinkLines, formatCOP, perUnit, waLink, type DrinkFormat } from '../../data/site';
 import { cartEnabled, drinkFormats } from '../../data/shop';
+import { API_URL } from '../../data/blend-api';
 
 export const getStaticPaths = (async () => {
   const drinks = await getDrinks();
@@ -85,7 +86,7 @@ if (d.price) {
             {d.badges.map((b) => <li class="chip"><span class="chip-dot"></span>{b}</li>)}
           </ul>
 
-          <div class="pdp-actions" data-order data-name={d.name} data-cart={cart ? 'on' : undefined} data-variant={first.variantId}>
+          <div class="pdp-actions" data-order data-name={d.name} data-cart={cart ? 'on' : undefined} data-api={cart ? API_URL : undefined} data-variant={first.variantId}>
             {formats.length > 1 && (
               <fieldset class="formats">
                 <legend class="eyebrow">Presentación</legend>
@@ -107,7 +108,8 @@ if (d.price) {
                       <span class="format-name">{f.label} <small>{f.detail}</small></span>
                       <span class="format-price">
                         <span class="price">{formatCOP(f.price)}</span>
-                        {perUnit(f) && <small>{perUnit(f)}</small>}
+                        {perUnit(f) && <small class="format-unit">{perUnit(f)}</small>}
+                        <small class="format-out" hidden>Agotado</small>
                       </span>
                     </span>
                   </label>
@@ -145,6 +147,7 @@ if (d.price) {
                 </a>
               )}
             </div>
+            {cart && <p class="small pdp-low" data-low hidden></p>}
             {cart && (
               <p class="small pdp-added" role="status" data-added hidden>
                 Listo, quedó en tu carrito. <a href="/carrito" class="link-arrow">Ver carrito</a>
@@ -287,6 +290,11 @@ if (d.price) {
   .format input:checked + .format-chip small { color: rgba(246, 239, 227, .75); }
   .format-price { display: grid; justify-items: end; line-height: 1.2; }
   .format-price small { font-size: 12px; color: var(--ink-2); }
+  .format.is-soldout .format-chip { opacity: .5; cursor: not-allowed; }
+  .format.is-soldout .format-chip:hover { border-color: var(--line); }
+  .format.is-soldout .format-unit { display: none; }
+  .pdp-low { color: var(--deep); }
+  .pdp-cta.is-soldout, .buybar .is-soldout { opacity: .5; pointer-events: none; }
   .format input:focus-visible + .format-chip { outline: 2px solid var(--ink); outline-offset: 3px; }
 
   .pdp-price { font-size: 20px; }
@@ -410,6 +418,7 @@ if (d.price) {
 
 <script>
   import { addBundle, addItem } from '../../scripts/cart';
+  import { loadStock, type Stock } from '../../scripts/stock';
 
   // Cantidad + presentación → precio total y, según el modo, carrito o mensaje de WhatsApp.
   document.querySelectorAll<HTMLElement>('[data-order]').forEach((box) => {
@@ -427,13 +436,45 @@ if (d.price) {
     const bar = document.querySelector<HTMLElement>('[data-buybar]');
     const barTotal = bar?.querySelector<HTMLElement>('[data-buybar-total]');
     const barCta = bar?.querySelector<HTMLAnchorElement>('[data-buybar-cta]');
+    const low = box.querySelector<HTMLElement>('[data-low]');
+    const plus = box.querySelector<HTMLButtonElement>('[data-step="1"]');
+    const MAX = 24;
+    let stock: Stock | null = null;
     let qty = 1;
+
+    // Cuánto se puede pedir del formato: latas en stock, o cajas completas del sabor.
+    const available = (r?: HTMLInputElement) => {
+      if (!stock) return MAX;
+      if (r?.dataset.bundle) {
+        const n = stock[r.dataset.pick ?? ''];
+        return n == null ? MAX : Math.floor(n / Number(r.dataset.units ?? 6));
+      }
+      const n = stock[r?.dataset.variant ?? box.dataset.variant ?? ''];
+      return n == null ? MAX : n;
+    };
 
     const update = () => {
       const chosen = radios.find((r) => r.checked);
       const label = chosen?.dataset.label ?? link.dataset.label ?? '';
       const unit = Number(chosen?.dataset.price ?? total?.dataset.unit ?? 0);
+      const max = Math.min(MAX, available(chosen));
+      qty = Math.max(1, Math.min(qty, max));
       out.value = String(qty);
+      if (plus) plus.disabled = qty >= max;
+      if (cartMode) {
+        const soldOut = max === 0;
+        [link, barCta].forEach((el) => {
+          if (!el) return;
+          el.classList.toggle('is-soldout', soldOut);
+          el.toggleAttribute('aria-disabled', soldOut);
+        });
+        link.textContent = soldOut ? 'Agotado' : 'Agregar al carrito';
+        if (barCta) barCta.textContent = soldOut ? 'Agotado' : 'Agregar';
+        if (low) {
+          low.hidden = !(stock && !chosen?.dataset.bundle && max > 0 && max <= 5);
+          low.textContent = max === 1 ? 'Queda 1 lata.' : `Quedan ${max} latas.`;
+        }
+      }
       if (total && unit) {
         total.textContent = qty > 1 ? `${cop.format(unit * qty)} · ${qty} × ${cop.format(unit)}` : cop.format(unit);
       }
@@ -448,6 +489,7 @@ if (d.price) {
     const addToCart = (e: Event) => {
       e.preventDefault();
       const chosen = radios.find((r) => r.checked);
+      if (available(chosen) === 0) return;
       const bundleId = chosen?.dataset.bundle;
       if (bundleId) {
         const pick = { variantId: chosen!.dataset.pick ?? '', qty: Number(chosen!.dataset.units ?? 6) };
@@ -477,10 +519,30 @@ if (d.price) {
 
     box.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        qty = Math.min(24, Math.max(1, qty + Number(btn.dataset.step)));
+        qty = Math.max(1, qty + Number(btn.dataset.step));
         update();
       });
     });
     radios.forEach((r) => r.addEventListener('change', update));
+
+    // Stock en vivo: marca formatos agotados y, si el elegido lo está, pasa al primero disponible.
+    if (cartMode && box.dataset.api) {
+      loadStock(box.dataset.api).then((s) => {
+        if (!s) return;
+        stock = s;
+        radios.forEach((r) => {
+          const out = available(r) === 0;
+          r.disabled = out;
+          r.closest('.format')?.classList.toggle('is-soldout', out);
+          r.closest('.format')?.querySelector<HTMLElement>('.format-out')?.toggleAttribute('hidden', !out);
+        });
+        const chosen = radios.find((r) => r.checked);
+        if (chosen?.disabled) {
+          const next = radios.find((r) => !r.disabled);
+          if (next) next.checked = true;
+        }
+        update();
+      });
+    }
   });
 </script>
