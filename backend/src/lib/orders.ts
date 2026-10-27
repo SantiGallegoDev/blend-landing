@@ -80,7 +80,7 @@ export async function createCheckout(input: CheckoutInput, ip: string | null) {
     productId: string | null;
     variantId: string | null;
     bundleId: string | null;
-    bundleContents: { variantId: string; name: string; qty: number }[] | null;
+    bundleContents: { variantId: string; name: string; qty: number; unitPrice?: number }[] | null;
     isDigital: boolean;
     quantity: number;
     unitPrice: number;
@@ -103,16 +103,20 @@ export async function createCheckout(input: CheckoutInput, ip: string | null) {
     for (const req of input.bundles) {
       const b = bundles.find((x) => x.id === req.bundleId);
       if (!b || !b.active) throw new CheckoutError('Uno de los combos ya no está disponible.', 409);
-      const allowed = new Set(eligible.filter((e) => e.bundleId === b.id).map((e) => e.variantId));
+      const allowed = new Map(eligible.filter((e) => e.bundleId === b.id).map((e) => [e.variantId, e.unitPrice]));
       const count = req.picks.reduce((s, p) => s + p.qty, 0);
       if (count !== b.size) throw new CheckoutError(`${b.name} lleva exactamente ${b.size} unidades.`);
       const contents = req.picks.map((pick) => {
         if (!allowed.has(pick.variantId)) throw new CheckoutError(`Ese sabor no se puede elegir en ${b.name}.`);
         const { v, p } = sellable(pick.variantId);
         if (v.trackStock) take(v.id, pick.qty);
-        return { variantId: v.id, name: p.name, qty: pick.qty };
+        // Combo por sabor: cada unidad vale el precio que ese sabor tiene dentro del combo.
+        const unitPrice = b.pricing === 'per_item' ? allowed.get(pick.variantId) : undefined;
+        if (b.pricing === 'per_item' && !unitPrice) throw new CheckoutError(`${b.name} no tiene precio para ${p.name}.`, 409);
+        return { variantId: v.id, name: p.name, qty: pick.qty, ...(unitPrice ? { unitPrice } : {}) };
       });
-      lines.push({ name: b.name, variantName: contents.map((c) => `${c.qty}× ${c.name}`).join(', '), productId: null, variantId: null, bundleId: b.id, bundleContents: contents, isDigital: false, quantity: 1, unitPrice: b.price });
+      const boxPrice = b.pricing === 'per_item' ? contents.reduce((s, c) => s + c.qty * (c.unitPrice ?? 0), 0) : b.price;
+      lines.push({ name: b.name, variantName: contents.map((c) => `${c.qty}× ${c.name}`).join(', '), productId: null, variantId: null, bundleId: b.id, bundleContents: contents, isDigital: false, quantity: 1, unitPrice: boxPrice });
     }
   }
 

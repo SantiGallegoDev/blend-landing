@@ -30,7 +30,21 @@ type ApiProduct = {
 };
 export type ApiCatalog = {
   products: ApiProduct[];
-  bundles: { id: string; slug: string; name: string; description: string; size: number; price: number; variantIds: string[] }[];
+  bundles: {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    size: number;
+    // fixed: price es el de la caja. per_item: cada sabor vale prices[variantId] y price es el "desde".
+    pricing: 'fixed' | 'per_item';
+    price: number;
+    prices: Record<string, number>;
+    featured: boolean;
+    order: number;
+    image: Photo | null;
+    variantIds: string[];
+  }[];
   delivery: { fee: number | null; cities: string[]; note: string };
 };
 
@@ -133,7 +147,12 @@ export function bundlesLoader(): Loader {
       if (!API_URL) return;
       const catalog = await fetchCatalog();
       for (const item of catalog.bundles) {
-        store.set({ id: item.id, data: await parseData({ id: item.id, data: item as unknown as Record<string, unknown> }) });
+        const data = { ...item, image: (await local(item.image)) ?? undefined };
+        store.set({
+          id: item.id,
+          data: await parseData({ id: item.id, data: JSON.parse(JSON.stringify(data)), filePath: ENTRY_FILE }),
+          filePath: ENTRY_FILE,
+        });
       }
     },
   };
@@ -150,4 +169,19 @@ export function deliveryLoader(): Loader {
       store.set({ id: 'config', data: await parseData({ id: 'config', data: delivery }) });
     },
   };
+}
+
+// ── Precio de los combos ───────────────────────────────────────────────────
+// La web solo los muestra: el total que se cobra lo recalcula siempre el servidor.
+
+type BundlePricing = { pricing: 'fixed' | 'per_item'; price: number; prices: Record<string, number> };
+
+// Precio de una unidad de ese sabor dentro del combo (en "fixed": la caja dividida por igual).
+export function bundleUnitPrice(bundle: BundlePricing & { size: number }, variantId: string): number {
+  return bundle.pricing === 'per_item' ? bundle.prices[variantId] ?? 0 : Math.round(bundle.price / bundle.size);
+}
+
+// Total de una caja según lo elegido.
+export function bundleTotal(bundle: BundlePricing, picks: { variantId: string; qty: number }[]): number {
+  return bundle.pricing === 'per_item' ? picks.reduce((s, p) => s + p.qty * (bundle.prices[p.variantId] ?? 0), 0) : bundle.price;
 }

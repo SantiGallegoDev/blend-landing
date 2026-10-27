@@ -1,6 +1,6 @@
 import { ActionError, defineAction } from 'astro:actions';
 import { z } from 'astro/zod';
-import { eq } from 'drizzle-orm';
+import { eq, ne } from 'drizzle-orm';
 import { db, schema } from '../db';
 import { audit } from '../lib/audit';
 import { getDelivery, QUINDIO, saveDelivery } from '../lib/delivery';
@@ -52,7 +52,10 @@ export const catalog = {
     input: z.object({ name: z.string().trim().min(1).max(80) }),
     handler: async ({ name }, ctx) => {
       const me = requireUser(ctx, 'productos');
-      const slug = `${name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36)}`;
+      // Slug limpio a partir del nombre ("caja-de-cafes"), numerado solo si ya existe.
+      const base = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'combo';
+      let slug = base;
+      for (let n = 2; await db.query.bundle.findFirst({ where: eq(schema.bundle.slug, slug) }); n++) slug = `${base}-${n}`;
       const [row] = await db.insert(schema.bundle).values({ name, slug, size: 6, price: 1, active: false }).returning({ id: schema.bundle.id });
       await audit({ userId: me.id, action: 'bundle.create', entity: 'bundle', entityId: row.id, after: { name }, ip: ipOf(ctx) });
       return { id: row.id };
@@ -67,25 +70,47 @@ export const catalog = {
       slug: slugSchema,
       description: z.string().trim().max(500),
       size: z.coerce.number().int().min(2, 'Mínimo 2 unidades').max(48),
-      price,
+      pricing: z.enum(['fixed', 'per_item']),
+      // En "fixed" es el precio de la caja; en "per_item" se calcula solo (no se usa lo que llegue).
+      price: z.coerce.number().int().min(0).max(100_000_000),
       active: z.boolean(),
+      featured: z.boolean(),
       sortOrder: z.coerce.number().int().min(0).max(9999),
-      variantIds: z.array(z.uuid()).max(100),
+      imageAlt: z.string().trim().max(240).default(''),
+      imageFocus: z.string().regex(/^\d{1,3}% \d{1,3}%$/).default('50% 50%'),
+      variants: z
+        .array(z.object({ variantId: z.uuid(), unitPrice: z.coerce.number().int().positive('El precio por sabor debe ser mayor a 0').max(10_000_000).nullable().optional() }))
+        .max(100),
     }),
     handler: async (input, ctx) => {
       const me = requireUser(ctx, 'productos');
-      if (input.active && input.variantIds.length === 0) {
+      if (input.active && input.variants.length === 0) {
         throw new ActionError({ code: 'BAD_REQUEST', message: 'Elige al menos un sabor para poder activarlo.' });
+      }
+      let price = input.price;
+      if (input.pricing === 'per_item') {
+        const missing = input.variants.some((v) => !v.unitPrice);
+        if (missing) throw new ActionError({ code: 'BAD_REQUEST', message: 'Ponle precio en combo a cada sabor elegido.' });
+        // "Desde": la caja más barata posible, todo del sabor de menor precio.
+        price = input.variants.length ? input.size * Math.min(...input.variants.map((v) => v.unitPrice!)) : 1;
+      } else if (price <= 0) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Escribe el precio de la caja.' });
       }
       const clash = await db.query.bundle.findFirst({ where: eq(schema.bundle.slug, input.slug) });
       if (clash && clash.id !== input.id) throw new ActionError({ code: 'BAD_REQUEST', message: `El slug "${input.slug}" ya está en uso.` });
       const before = await db.query.bundle.findFirst({ where: eq(schema.bundle.id, input.id) });
       if (!before) throw new ActionError({ code: 'NOT_FOUND' });
       await db.transaction(async (tx) => {
-        const { variantIds, id, ...fields } = input;
-        await tx.update(schema.bundle).set({ ...fields, updatedAt: new Date() }).where(eq(schema.bundle.id, id));
+        const { variants, id, price: _ignored, ...fields } = input;
+        // Solo un combo destacado en el inicio: marcar uno desmarca los demás.
+        if (fields.featured) await tx.update(schema.bundle).set({ featured: false }).where(ne(schema.bundle.id, id));
+        await tx.update(schema.bundle).set({ ...fields, price, updatedAt: new Date() }).where(eq(schema.bundle.id, id));
         await tx.delete(schema.bundleVariant).where(eq(schema.bundleVariant.bundleId, id));
-        if (variantIds.length) await tx.insert(schema.bundleVariant).values(variantIds.map((variantId) => ({ bundleId: id, variantId })));
+        if (variants.length) {
+          await tx.insert(schema.bundleVariant).values(
+            variants.map((v) => ({ bundleId: id, variantId: v.variantId, unitPrice: input.pricing === 'per_item' ? v.unitPrice! : null })),
+          );
+        }
       });
       await markCatalogChanged();
       await audit({
@@ -93,8 +118,14 @@ export const catalog = {
         action: 'bundle.update',
         entity: 'bundle',
         entityId: input.id,
-        before: { price: before.price, size: before.size, active: before.active },
-        after: { price: input.price, size: input.size, active: input.active },
+        before: { price: before.price, size: before.size, active: before.active, pricing: before.pricing },
+        after: {
+          price,
+          size: input.size,
+          active: input.active,
+          pricing: input.pricing,
+          ...(input.pricing === 'per_item' ? { prices: input.variants.map((v) => v.unitPrice) } : {}),
+        },
         ip: ipOf(ctx),
       });
     },

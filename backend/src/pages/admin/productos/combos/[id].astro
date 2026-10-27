@@ -1,105 +1,327 @@
 ---
 import { asc, eq } from 'drizzle-orm';
+import Icon from '../../../../components/Icon.astro';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import { db, schema } from '../../../../db';
 import { requirePermission } from '../../../../lib/guard';
 import { formatCOP } from '../../../../lib/format';
+import { adminMediaUrl } from '../../../../lib/media';
 
 const denied = requirePermission(Astro, 'productos');
 if (denied) return denied;
 
 const b = await db.query.bundle.findFirst({ where: eq(schema.bundle.id, Astro.params.id ?? '') });
 if (!b) return new Response('No encontrado', { status: 404 });
-const chosen = new Set((await db.select().from(schema.bundleVariant).where(eq(schema.bundleVariant.bundleId, b.id))).map((r) => r.variantId));
+const chosen = new Map(
+  (await db.select().from(schema.bundleVariant).where(eq(schema.bundleVariant.bundleId, b.id))).map((r) => [r.variantId, r.unitPrice]),
+);
 const options = await db
-  .select({ id: schema.variant.id, name: schema.variant.name, price: schema.variant.price, product: schema.product.name, status: schema.product.status })
+  .select({
+    id: schema.variant.id,
+    name: schema.variant.name,
+    price: schema.variant.price,
+    product: schema.product.name,
+    status: schema.product.status,
+    color: schema.product.flavorColor,
+  })
   .from(schema.variant)
   .innerJoin(schema.product, eq(schema.variant.productId, schema.product.id))
   .where(eq(schema.product.type, 'drink'))
   .orderBy(asc(schema.product.sortOrder), asc(schema.variant.sortOrder));
 ---
 <AdminLayout title={b.name}>
-  <div>
-    <a href="/admin/productos" class="small muted">← Productos</a>
-    <h1>{b.name}</h1>
+  <div class="head">
+    <div>
+      <a href="/admin/productos" class="small muted">← Productos</a>
+      <h1>{b.name}</h1>
+      <p class="row badges">
+        <span class:list={['badge', b.active ? 'badge-ok' : 'badge-warn']}>{b.active ? 'Activo en la web' : 'Inactivo'}</span>
+        {b.featured && <span class="badge badge-ok">Destacado en el inicio</span>}
+      </p>
+    </div>
   </div>
-  <form id="bundle" class="card stack narrow" data-id={b.id} novalidate>
-    <div class="two">
-      <label class="field"><span>Nombre</span><input name="name" value={b.name} maxlength="80" required /></label>
-      <label class="field"><span>Slug</span><input name="slug" value={b.slug} maxlength="60" required /></label>
-    </div>
-    <label class="field"><span>Descripción</span><textarea name="description" rows="2" maxlength="500">{b.description}</textarea></label>
-    <div class="three">
-      <label class="field"><span>Unidades por caja</span><input type="number" name="size" value={b.size} min="2" max="48" /></label>
-      <label class="field"><span>Precio de la caja (COP)</span><input type="number" name="price" value={b.price} min="1" step="100" /></label>
-      <label class="field"><span>Orden</span><input type="number" name="sortOrder" value={b.sortOrder} min="0" /></label>
-    </div>
-    <p class="small muted" id="per-unit"></p>
-    <fieldset class="stack-sm">
-      <legend class="label">Sabores que se pueden elegir</legend>
-      {options.map((o) => (
-        <label class="check">
-          <input type="checkbox" name="variantIds" value={o.id} checked={chosen.has(o.id)} />
-          {o.product} · {o.name} <span class="muted small">({formatCOP(o.price)} suelta{o.status !== 'active' ? ', producto sin publicar' : ''})</span>
+
+  <form id="bundle" class="layout" data-id={b.id} novalidate>
+    <div class="col">
+      <section class="card stack">
+        <h2>General</h2>
+        <div class="two">
+          <label class="field"><span>Nombre</span><input name="name" value={b.name} maxlength="80" required /></label>
+          <label class="field"><span>Slug (URL)</span><input name="slug" value={b.slug} maxlength="60" required /></label>
+        </div>
+        <label class="field">
+          <span>Descripción corta (se ve en la web)</span>
+          <textarea name="description" rows="2" maxlength="500" placeholder="Ej. Arma tu caja con tus cafés favoritos.">{b.description}</textarea>
         </label>
-      ))}
-    </fieldset>
-    <label class="check"><input type="checkbox" name="active" checked={b.active} /> Activo (se puede comprar en la web)</label>
-    <p class="alert alert-bad small" id="error" role="alert" hidden></p>
-    <p class="alert alert-ok small" id="ok" role="status" hidden></p>
-    <button class="btn btn-solid">Guardar</button>
+        <div class="two">
+          <label class="field"><span>Unidades por caja</span><input type="number" name="size" value={b.size} min="2" max="48" /></label>
+          <label class="field"><span>Orden en la página de combos</span><input type="number" name="sortOrder" value={b.sortOrder} min="0" /></label>
+        </div>
+      </section>
+
+      <section class="card stack">
+        <h2>¿Cómo se cobra?</h2>
+        <div class="modes" role="radiogroup" aria-label="Forma de cobrar el combo">
+          <label class="mode">
+            <input type="radio" name="pricing" value="fixed" checked={b.pricing === 'fixed'} />
+            <span class="mode-body">
+              <strong>Un precio por caja</strong>
+              <span class="small muted">La caja vale lo mismo con cualquier mezcla de sabores. Ej.: six pack Flow a $42.000.</span>
+            </span>
+          </label>
+          <label class="mode">
+            <input type="radio" name="pricing" value="per_item" checked={b.pricing === 'per_item'} />
+            <span class="mode-body">
+              <strong>Precio por sabor</strong>
+              <span class="small muted">Cada sabor tiene su precio dentro del combo y la caja suma lo que elija el cliente. Ej.: Latte a un precio y Americano a otro.</span>
+            </span>
+          </label>
+        </div>
+        <label class="field fixed-only">
+          <span>Precio de la caja (COP)</span>
+          <input type="number" name="price" value={b.pricing === 'fixed' ? b.price : ''} min="1" step="100" />
+        </label>
+      </section>
+
+      <section class="card stack">
+        <div>
+          <h2>Sabores que se pueden elegir</h2>
+          <p class="small muted per-only">Escribe cuánto vale <strong>una unidad</strong> de cada sabor cuando va dentro de este combo.</p>
+        </div>
+        <ul class="flavors">
+          {options.map((o) => (
+            <li class="flavor" data-variant={o.id}>
+              <label class="pick">
+                <input type="checkbox" name="variantIds" value={o.id} checked={chosen.has(o.id)} />
+                <span class="dot" data-color={o.color ?? ''}></span>
+                <span class="flavor-name">
+                  <strong>{o.product}</strong>
+                  <span class="small muted">{o.name} · suelta {formatCOP(o.price)}{o.status !== 'active' ? ' · sin publicar' : ''}</span>
+                </span>
+              </label>
+              <label class="unit per-only">
+                <span class="small muted">En combo</span>
+                <input
+                  type="number"
+                  data-unit-price
+                  value={chosen.get(o.id) ?? o.price}
+                  min="1"
+                  step="100"
+                  aria-label={`Precio de ${o.product} ${o.name} dentro del combo`}
+                />
+              </label>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+
+    <aside class="col side">
+      <section class="card stack summary">
+        <h2>Resumen</h2>
+        <p class="sum-main" id="sum-main"></p>
+        <p class="small muted" id="sum-sub"></p>
+      </section>
+
+      <section class="card stack">
+        <h2>En la web</h2>
+        <label class="switch"><input type="checkbox" name="active" checked={b.active} /> <span>Activo (se puede comprar)</span></label>
+        <label class="switch"><input type="checkbox" name="featured" checked={b.featured} /> <span>Destacar en el inicio</span></label>
+        <p class="small muted">Solo un combo se destaca a la vez: al marcar este, se desmarca el que estaba. Todos los activos salen en la página de combos.</p>
+      </section>
+
+      <section class="card stack">
+        <h2>Foto del combo</h2>
+        <div class="photo" id="photo" data-has={b.imageKey ? 'yes' : 'no'}>
+          {b.imageKey ? (
+            <div class="pick-photo" data-pick>
+              <img src={adminMediaUrl(b.imageKey)} alt="" width={b.imageWidth ?? 600} height={b.imageHeight ?? 600} id="photo-img" />
+              <span class="pin" data-pin data-focus={b.imageFocus}></span>
+            </div>
+          ) : (
+            <p class="small muted empty-photo">Sin foto: la web arma la portada con los colores de los sabores.</p>
+          )}
+        </div>
+        <label class="field"><span>Descripción de la foto</span><input name="imageAlt" value={b.imageAlt} maxlength="240" placeholder="Ej. Seis latas de Cold Coffee sobre una mesa de madera" /></label>
+        <div class="row">
+          <label class="btn btn-sm"><Icon name="plus" size={16} />{b.imageKey ? 'Cambiar foto' : 'Subir foto'}<input type="file" id="upload" accept="image/jpeg,image/png,image/webp,image/avif" hidden /></label>
+          {b.imageKey && <button type="button" class="btn btn-sm btn-danger" id="remove-photo">Quitar</button>}
+        </div>
+        <p class="small muted" id="photo-status" hidden></p>
+      </section>
+
+      <div class="savebar">
+        <p class="alert alert-bad small" id="error" role="alert" hidden></p>
+        <p class="alert alert-ok small" id="ok" role="status" hidden></p>
+        <button class="btn btn-solid" type="submit">Guardar combo</button>
+        <p class="small muted">Para que la web lo muestre, después usa “Publicar cambios”.</p>
+      </div>
+    </aside>
   </form>
 </AdminLayout>
 
 <style>
-  .narrow { max-width: 760px; }
-  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-  .three { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 0; }
-  .stack-sm { display: grid; gap: 8px; }
-  .label { font-size: 13px; font-weight: 500; padding: 0 4px; }
-  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-  .check input { width: auto; }
+  .badges { margin-top: 8px; gap: 8px; }
+  .layout { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr) 320px; } }
+  .col { display: grid; gap: 20px; min-width: 0; }
+  .side { position: sticky; top: 24px; }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+  .modes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .mode {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, .55);
+    cursor: pointer;
+    transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+  }
+  .mode:has(input:checked) {
+    background: #fff;
+    border-color: rgba(42, 37, 32, .45);
+    box-shadow: 0 0 0 4px rgba(197, 209, 176, .45), var(--shadow-sm);
+  }
+  .mode input { margin-top: 3px; }
+  .mode-body { display: grid; gap: 4px; }
+
+  .flavors { list-style: none; margin: 0; padding: 0; display: grid; }
+  .flavor { display: flex; align-items: center; gap: 16px; padding: 12px 4px; border-top: 1px solid var(--line); }
+  .flavor:first-child { border-top: 0; }
+  .pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .flavor-name { display: grid; min-width: 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--latte); box-shadow: 0 0 0 3px #fff; flex: none; }
+  .unit { display: grid; gap: 4px; justify-items: end; }
+  .unit input { width: 130px; text-align: right; }
+  .flavor:not(:has(input[name='variantIds']:checked)) .unit { opacity: .35; }
+
+  .summary { background: radial-gradient(120% 90% at 100% 0%, rgba(220, 73, 129, .12), transparent 60%), var(--glass-strong); }
+  .sum-main { font-family: var(--serif); font-size: 26px; line-height: 1.15; }
+  .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+
+  .pick-photo { position: relative; border-radius: 16px; overflow: hidden; cursor: crosshair; background: var(--cream); }
+  .pick-photo img { display: block; width: 100%; height: auto; }
+  .pin { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid #fff; background: rgba(42, 37, 32, .6); pointer-events: none; }
+  .empty-photo { padding: 18px; border-radius: 16px; border: 1px dashed var(--line-strong); text-align: center; }
+  .savebar { display: grid; gap: 10px; }
+
+  /* Mostrar u ocultar según la forma de cobrar. */
+  .layout[data-pricing='fixed'] .per-only { display: none; }
+  .layout[data-pricing='per_item'] .fixed-only { display: none; }
 </style>
 
 <script>
   import { actions, isInputError } from 'astro:actions';
 
   const form = document.getElementById('bundle') as HTMLFormElement;
+  const id = form.dataset.id!;
   const errorBox = document.getElementById('error')!;
   const okBox = document.getElementById('ok')!;
-  const perUnit = document.getElementById('per-unit')!;
   const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
   const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
-  const showPerUnit = () => {
-    const size = Number(field('size').value);
-    const price = Number(field('price').value);
-    perUnit.textContent = size > 0 && price > 0 ? `Equivale a ${cop.format(Math.round(price / size))} por unidad.` : '';
+  const pricing = () => (form.querySelector<HTMLInputElement>('input[name=pricing]:checked')?.value ?? 'fixed') as 'fixed' | 'per_item';
+  const rows = () =>
+    [...form.querySelectorAll<HTMLElement>('.flavor')].map((li) => ({
+      variantId: li.dataset.variant!,
+      checked: li.querySelector<HTMLInputElement>('input[name=variantIds]')!.checked,
+      unitPrice: Number(li.querySelector<HTMLInputElement>('[data-unit-price]')!.value) || 0,
+    }));
+  const say = (box: HTMLElement | null, msg?: string) => {
+    errorBox.hidden = okBox.hidden = true;
+    if (box && msg) { box.textContent = msg; box.hidden = false; }
   };
-  form.addEventListener('input', showPerUnit);
-  showPerUnit();
+
+  document.querySelectorAll<HTMLElement>('.dot[data-color]').forEach((el) => { if (el.dataset.color) el.style.background = el.dataset.color; });
+
+  // Resumen en vivo: precio de la caja o rango posible según los sabores.
+  function update() {
+    form.dataset.pricing = pricing();
+    const size = Number(field('size').value) || 0;
+    const main = document.getElementById('sum-main')!;
+    const sub = document.getElementById('sum-sub')!;
+    if (pricing() === 'fixed') {
+      const price = Number(field('price').value) || 0;
+      main.textContent = price ? `${cop.format(price)} la caja` : 'Escribe el precio de la caja';
+      sub.textContent = price && size ? `Caja de ${size}: equivale a ${cop.format(Math.round(price / size))} por unidad.` : '';
+    } else {
+      const prices = rows().filter((r) => r.checked && r.unitPrice > 0).map((r) => r.unitPrice);
+      if (!prices.length || !size) {
+        main.textContent = 'Elige los sabores';
+        sub.textContent = '';
+        return;
+      }
+      const min = size * Math.min(...prices);
+      const max = size * Math.max(...prices);
+      main.textContent = min === max ? `${cop.format(min)} la caja` : `${cop.format(min)} – ${cop.format(max)}`;
+      sub.textContent = `Caja de ${size}: depende de la mezcla. La web muestra “desde ${cop.format(min)}”.`;
+    }
+  }
+  form.addEventListener('input', update);
+  form.addEventListener('change', update);
+  update();
+
+  // Punto de recorte de la foto.
+  const pick = document.querySelector<HTMLElement>('[data-pick]');
+  const pin = document.querySelector<HTMLElement>('[data-pin]');
+  const placePin = () => { if (pin) { const [x, y] = pin.dataset.focus!.split(' '); pin.style.left = x; pin.style.top = y; } };
+  placePin();
+  pick?.addEventListener('click', (e) => {
+    const box = pick.getBoundingClientRect();
+    const x = Math.round(((e.clientX - box.left) / box.width) * 100);
+    const y = Math.round(((e.clientY - box.top) / box.height) * 100);
+    pin!.dataset.focus = `${x}% ${y}%`;
+    placePin();
+  });
+
+  // Foto: subir o quitar (se aplica al instante).
+  const status = document.getElementById('photo-status')!;
+  document.getElementById('upload')!.addEventListener('change', async (e) => {
+    const input = e.currentTarget as HTMLInputElement;
+    if (!input.files?.[0]) return;
+    status.hidden = false;
+    status.textContent = 'Subiendo foto…';
+    const data = new FormData();
+    data.append('file', input.files[0]);
+    const res = await fetch(`/admin/api/combos/${id}/imagen`, { method: 'POST', body: data });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { status.textContent = body.error ?? 'No se pudo subir la foto.'; return; }
+    location.reload();
+  });
+  document.getElementById('remove-photo')?.addEventListener('click', async () => {
+    if (!confirm('¿Quitar la foto del combo?')) return;
+    const res = await fetch(`/admin/api/combos/${id}/imagen`, { method: 'DELETE' });
+    if (res.ok) location.reload();
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    errorBox.hidden = okBox.hidden = true;
+    say(null);
     const data = new FormData(form);
+    const mode = pricing();
     const { error } = await actions.catalog.saveBundle({
-      id: form.dataset.id!,
+      id,
       name: String(data.get('name')),
       slug: String(data.get('slug')),
       description: String(data.get('description')),
       size: Number(data.get('size')),
-      price: Number(data.get('price')),
+      pricing: mode,
+      price: mode === 'fixed' ? Number(data.get('price')) : 0,
       sortOrder: Number(data.get('sortOrder')),
       active: data.get('active') === 'on',
-      variantIds: data.getAll('variantIds').map(String),
+      featured: data.get('featured') === 'on',
+      imageAlt: String(data.get('imageAlt') ?? ''),
+      imageFocus: pin?.dataset.focus ?? '50% 50%',
+      variants: rows()
+        .filter((r) => r.checked)
+        .map((r) => ({ variantId: r.variantId, unitPrice: mode === 'per_item' ? r.unitPrice : null })),
     });
     if (error) {
-      errorBox.textContent = isInputError(error) ? error.issues.map((i) => i.message).join(' · ') : error.message;
-      errorBox.hidden = false;
+      say(errorBox, isInputError(error) ? error.issues.map((i) => i.message).join(' · ') : error.message);
       return;
     }
-    okBox.textContent = 'Guardado.';
-    okBox.hidden = false;
+    say(okBox, 'Combo guardado.');
+    setTimeout(() => location.reload(), 600);
   });
 </script>

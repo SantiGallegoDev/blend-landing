@@ -30,7 +30,9 @@ for (const e of ebooks) {
     variants[v.id] = { product: e.data.title, variant: v.name, price: v.price, digital: true, href: `/digital/${e.id}`, thumb, color: e.data.coverColor };
   }
 }
-const bundles = Object.fromEntries(combos.map((c) => [c.id, { name: c.data.name, size: c.data.size, price: c.data.price }]));
+const bundles = Object.fromEntries(
+  combos.map((c) => [c.id, { name: c.data.name, size: c.data.size, pricing: c.data.pricing, price: c.data.price, prices: c.data.prices }]),
+);
 const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: domicilio }).replace(/</g, '\\u003c');
 ---
 <BaseLayout title="Tu carrito · Blend" description="Revisa tu pedido y paga en línea con tarjeta, PSE o Efecty." noindex>
@@ -163,7 +165,7 @@ const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: d
   const data = JSON.parse(document.getElementById('cart-data')!.textContent!) as {
     api: string;
     variants: Record<string, Entry>;
-    bundles: Record<string, { name: string; size: number; price: number }>;
+    bundles: Record<string, { name: string; size: number; pricing: 'fixed' | 'per_item'; price: number; prices: Record<string, number> }>;
     delivery: { fee: number | null; cities: string[]; note: string };
   };
   const root = document.querySelector<HTMLElement>('.cart')!;
@@ -186,11 +188,21 @@ const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: d
     return block;
   }
 
+  // Precio de una caja: fijo, o la suma de cada sabor en combos con precio por sabor (lo mismo que bundleTotal).
+  const boxPrice = (b: Cart['bundles'][number]) => {
+    const bundle = data.bundles[b.bundleId];
+    return bundle.pricing === 'per_item' ? b.picks.reduce((s, p) => s + p.qty * (bundle.prices[p.variantId] ?? 0), 0) : bundle.price;
+  };
+
   // Quita lo que ya no existe en el catálogo publicado (precio o producto retirado).
   function clean(cart: Cart): Cart {
     return {
       items: cart.items.filter((i) => data.variants[i.variantId]),
-      bundles: cart.bundles.filter((b) => data.bundles[b.bundleId] && b.picks.every((p) => data.variants[p.variantId])),
+      bundles: cart.bundles.filter(
+        (b) =>
+          data.bundles[b.bundleId] &&
+          b.picks.every((p) => data.variants[p.variantId] && (data.bundles[b.bundleId].pricing !== 'per_item' || data.bundles[b.bundleId].prices[p.variantId])),
+      ),
     };
   }
 
@@ -222,12 +234,12 @@ const data = JSON.stringify({ api: API_URL ?? '', variants, bundles, delivery: d
           {},
           thumb(data.variants[b.picks[0].variantId]),
           el('div', {}, el('span', { className: 'name' }, bundle.name), el('div', { className: 'detail' }, detail)),
-          el('div', { className: 'side' }, el('span', { className: 'price' }, cop.format(bundle.price)), el('button', { type: 'button', className: 'remove', onclick: () => removeBundle(b.key) }, 'Quitar')),
+          el('div', { className: 'side' }, el('span', { className: 'price' }, cop.format(boxPrice(b))), el('button', { type: 'button', className: 'remove', onclick: () => removeBundle(b.key) }, 'Quitar')),
         );
       }),
     );
 
-    const subtotal = cart.items.reduce((s, i) => s + data.variants[i.variantId].price * i.qty, 0) + cart.bundles.reduce((s, b) => s + data.bundles[b.bundleId].price, 0);
+    const subtotal = cart.items.reduce((s, i) => s + data.variants[i.variantId].price * i.qty, 0) + cart.bundles.reduce((s, b) => s + boxPrice(b), 0);
     const physical = cart.bundles.length > 0 || cart.items.some((i) => !data.variants[i.variantId].digital);
     const digital = cart.items.some((i) => data.variants[i.variantId].digital);
     const fee = physical ? data.delivery.fee ?? 0 : 0;

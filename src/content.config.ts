@@ -79,14 +79,24 @@ const ebooks = defineCollection({
 // Combos (six pack) y domicilio: solo existen con el catálogo del panel.
 const combos = defineCollection({
   loader: bundlesLoader(),
-  schema: z.object({
-    slug: z.string(),
-    name: z.string(),
-    description: z.string(),
-    size: z.number().int(),
-    price: z.number().int(),
-    variantIds: z.array(z.string()),
-  }),
+  schema: ({ image }) =>
+    z.object({
+      slug: z.string(),
+      name: z.string(),
+      description: z.string(),
+      size: z.number().int(),
+      // fixed: price es el de la caja. per_item: cada sabor vale prices[variantId]; price es el "desde".
+      pricing: z.enum(['fixed', 'per_item']).default('fixed'),
+      price: z.number().int(),
+      prices: z.record(z.string(), z.number().int()).default({}),
+      // El que va en el inicio (uno a la vez); si ninguno, el primero por order.
+      featured: z.boolean().default(false),
+      order: z.number().int().default(0),
+      image: z
+        .object({ src: image(), alt: z.string(), focus: z.string().default('50% 50%'), fit: z.enum(['cover', 'contain']).default('cover') })
+        .optional(),
+      variantIds: z.array(z.string()),
+    }),
 });
 
 const domicilio = defineCollection({

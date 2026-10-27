@@ -90,6 +90,19 @@ export async function publicCatalog() {
       size: b.size,
       price: b.price,
       variantIds: bundleVariants.filter((bv) => bv.bundleId === b.id && activeVariantIds.has(bv.variantId)).map((bv) => bv.variantId),
+      // fixed: price es el de la caja. per_item: cada sabor tiene su precio en el combo (prices) y price es el "desde".
+      pricing: b.pricing,
+      featured: b.featured,
+      order: b.sortOrder,
+      image: b.imageKey
+        ? { src: `${env.API_ORIGIN}/${b.imageKey}`, width: b.imageWidth!, height: b.imageHeight!, alt: b.imageAlt, focus: b.imageFocus, fit: 'cover' as const }
+        : null,
+      prices:
+        b.pricing === 'per_item'
+          ? Object.fromEntries(
+              bundleVariants.filter((bv) => bv.bundleId === b.id && activeVariantIds.has(bv.variantId) && bv.unitPrice).map((bv) => [bv.variantId, bv.unitPrice!]),
+            )
+          : {},
     })),
     // Domicilio: tarifa fija y municipios del Quindío donde se entrega (fee null = aún sin configurar).
     delivery,

@@ -104,8 +104,8 @@ const createError = created?.error && (isInputError(created.error) ? created.err
       {bundles.map((b) => (
         <li>
           <a href={`/admin/productos/combos/${b.id}`} class="prow brow">
-            <span class="pname"><strong>{b.name}</strong><span class="small muted">{b.size} unidades</span></span>
-            <span class="small">{formatCOP(b.price)}</span>
+            <span class="pname"><strong>{b.name}</strong><span class="small muted">{b.size} unidades · {b.pricing === 'per_item' ? 'precio por sabor' : 'precio por caja'}{b.featured ? ' · destacado' : ''}</span></span>
+            <span class="small">{b.pricing === 'per_item' ? `desde ${formatCOP(b.price)}` : formatCOP(b.price)}</span>
             <span><span class:list={['badge', b.active ? 'badge-ok' : 'badge-warn']}>{b.active ? 'Activo' : 'Inactivo'}</span></span>
           </a>
         </li>

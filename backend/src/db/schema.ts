@@ -203,16 +203,30 @@ export const variant = pgTable('variant', {
   check('variant_price_positive', sql`${t.price} > 0`),
 ]);
 
-// Combos que arma el cliente (six pack): precio fijo, N unidades de las variantes elegibles.
+// fixed: un precio por caja (six pack Flow). per_item: cada sabor tiene su precio dentro del combo
+// y la caja vale la suma de lo que elija el cliente (caja de cafés).
+export const bundlePricingEnum = pgEnum('bundle_pricing', ['fixed', 'per_item']);
+
+// Combos que arma el cliente (six pack): N unidades de las variantes elegibles.
 export const bundle = pgTable('bundle', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   size: integer('size').notNull(),
+  pricing: bundlePricingEnum('pricing').notNull().default('fixed'),
+  // fixed: precio de la caja. per_item: el mínimo posible (size × sabor más barato), para mostrar "desde".
   price: integer('price').notNull(),
   active: boolean('active').notNull().default(true),
+  // El que se muestra en el inicio de la web (uno a la vez).
+  featured: boolean('featured').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
+  // Foto propia del combo (opcional): si no hay, la web arma la portada con los sabores.
+  imageKey: text('image_key'),
+  imageWidth: integer('image_width'),
+  imageHeight: integer('image_height'),
+  imageAlt: text('image_alt').notNull().default(''),
+  imageFocus: text('image_focus').notNull().default('50% 50%'),
   createdAt: created(),
   updatedAt: updated(),
 }, (t) => [check('bundle_size_min', sql`${t.size} > 1`), check('bundle_price_positive', sql`${t.price} > 0`)]);
@@ -220,7 +234,9 @@ export const bundle = pgTable('bundle', {
 export const bundleVariant = pgTable('bundle_variant', {
   bundleId: uuid('bundle_id').notNull().references(() => bundle.id, { onDelete: 'cascade' }),
   variantId: uuid('variant_id').notNull().references(() => variant.id, { onDelete: 'cascade' }),
-}, (t) => [primaryKey({ columns: [t.bundleId, t.variantId] })]);
+  // Precio de una unidad de este sabor dentro del combo (solo en combos per_item).
+  unitPrice: integer('unit_price'),
+}, (t) => [primaryKey({ columns: [t.bundleId, t.variantId] }), check('bundle_variant_unit_price_positive', sql`${t.unitPrice} is null or ${t.unitPrice} > 0`)]);
 
 export const productImage = pgTable('product_image', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -310,7 +326,7 @@ export const orderItem = pgTable('order_item', {
   // Copia de lo que se vendió: el pedido no cambia si después se edita el catálogo.
   name: text('name').notNull(),
   variantName: text('variant_name'),
-  bundleContents: jsonb('bundle_contents').$type<{ variantId: string; name: string; qty: number }[]>(),
+  bundleContents: jsonb('bundle_contents').$type<{ variantId: string; name: string; qty: number; unitPrice?: number }[]>(),
   isDigital: boolean('is_digital').notNull().default(false),
   quantity: integer('quantity').notNull(),
   unitPrice: integer('unit_price').notNull(),
