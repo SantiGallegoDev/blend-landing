@@ -4,7 +4,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Photo from '../components/Photo.astro';
 import Moments from '../components/Moments.astro';
 import BusinessTeaser from '../components/BusinessTeaser.astro';
-import SixPack from '../components/SixPack.astro';
+import ComboBuilder from '../components/ComboBuilder.astro';
+import { getFeaturedCombo } from '../data/shop';
 import { site, seals } from '../data/site';
 
 // Foto de Katherine y Simón: guárdala como src/assets/marca/nosotros-katherine-y-simon.jpg
@@ -117,7 +118,7 @@ const pillars = [
   </section>
 
   <Moments />
-  <SixPack />
+  <ComboBuilder combo={await getFeaturedCombo()} showAll />
   <BusinessTeaser />
 </BaseLayout>
 

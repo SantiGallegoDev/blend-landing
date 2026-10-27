@@ -1,0 +1,46 @@
+---
+// Todos los combos activos del panel, en su orden. Sin catálogo del panel, el six pack Flow de site.ts.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ComboBuilder from '../components/ComboBuilder.astro';
+import { site } from '../data/site';
+import { getCombos } from '../data/shop';
+
+const combos = await getCombos();
+---
+<BaseLayout
+  title="Combos · Blend"
+  description={`Cajas de bebidas Blend para armar a tu gusto: eliges los sabores y te las entregamos frías en ${site.deliveryArea}.`}
+>
+  <section class="combos-hero">
+    <div class="container combos-hero-inner">
+      <p class="eyebrow" data-rise>Combos Blend</p>
+      <h1 class="h1" data-rise="2">Arma tu <em>caja</em>.</h1>
+      <p class="lead" data-rise="3">
+        Cajas para combinar a tu gusto: eliges cuántas latas de cada sabor y te las llevamos frías a {site.deliveryArea}.
+      </p>
+      {combos.length > 1 && (
+        <nav class="combos-jump" aria-label="Ir a un combo" data-rise="4">
+          {combos.map((c) => <a href={`#${c.slug}`} class="chip">{c.name}</a>)}
+        </nav>
+      )}
+    </div>
+  </section>
+
+  {combos.length > 0 ? (
+    combos.map((c, i) => <ComboBuilder combo={c} flip={i % 2 === 1} eyebrow={c.featured ? `Destacado · ${c.size} latas` : undefined} />)
+  ) : (
+    <ComboBuilder />
+  )}
+</BaseLayout>
+
+<style>
+  .combos-hero { padding-block: clamp(32px, 6vw, 80px) 0; }
+  .combos-hero-inner { display: grid; gap: 18px; justify-items: start; }
+  .combos-hero .lead { max-width: 46ch; }
+  .combos-jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .combos-jump .chip { transition: border-color .3s var(--ease); }
+  .combos-jump .chip:hover { border-color: var(--ink); }
+  /* Las secciones de combos van seguidas: menos aire entre una y otra. */
+  .combos-hero + :global(.pack) { padding-top: clamp(32px, 4vw, 56px); }
+  :global(.pack + .pack) { padding-top: 0; }
+</style>

@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HeroEcosystem from '../components/HeroEcosystem.astro';
 import DrinkShowcase from '../components/DrinkShowcase.astro';
-import SixPack from '../components/SixPack.astro';
+import ComboBuilder from '../components/ComboBuilder.astro';
 import IngredientStory from '../components/IngredientStory.astro';
 import Bridge from '../components/Bridge.astro';
 import DigitalShowcase from '../components/DigitalShowcase.astro';
@@ -10,6 +10,9 @@ import Moments from '../components/Moments.astro';
 import HowToOrder from '../components/HowToOrder.astro';
 import BusinessTeaser from '../components/BusinessTeaser.astro';
 import { site, instagramUrl } from '../data/site';
+import { getFeaturedCombo } from '../data/shop';
+
+const featured = await getFeaturedCombo();
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -27,7 +30,7 @@ const jsonLd = {
 <BaseLayout jsonLd={jsonLd}>
   <HeroEcosystem />
   <DrinkShowcase />
-  <SixPack />
+  <ComboBuilder combo={featured} showAll />
   <IngredientStory />
   <Bridge />
   <DigitalShowcase />

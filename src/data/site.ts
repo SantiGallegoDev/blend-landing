@@ -37,6 +37,7 @@ export function formatCOP(value: number): string {
 
 export const navLinks = [
   { label: 'Bebidas', href: '/bebidas' },
+  { label: 'Combos', href: '/combos' },
   { label: 'Digital', href: '/digital' },
   { label: 'Nosotros', href: '/nosotros' },
   { label: 'Negocios', href: '/negocios' },

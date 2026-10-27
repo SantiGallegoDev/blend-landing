@@ -10,7 +10,7 @@ const year = new Date().getFullYear();
 const cols = [
   {
     title: 'Bebidas',
-    links: drinks.map((d) => ({ label: d.data.name, href: `/bebidas/${d.id}` })),
+    links: [...drinks.map((d) => ({ label: d.data.name, href: `/bebidas/${d.id}` })), { label: 'Combos', href: '/combos' }],
   },
   {
     title: 'Digital',

@@ -1,51 +1,97 @@
 ---
-// El six pack de Flow como una caja que se arma a gusto. Con carrito, cada sabor tiene su
-// contador y la caja se agrega cuando suma las latas del combo; sin carrito, va a WhatsApp.
+// Un combo del panel como caja que se arma a gusto. Precio fijo por caja o por sabor (per_item).
+// Con carrito, cada sabor tiene su contador y la caja se agrega al completar `size` latas;
+// sin carrito (o sin catálogo del panel), el pedido va a WhatsApp.
 import Photo from './Photo.astro';
 import { getDrinks } from '../data/catalog';
-import { site, drinkLines, formatCOP, perUnit, waLink, type DrinkFormat } from '../data/site';
-import { cartEnabled, getSixPack } from '../data/shop';
-import { API_URL } from '../data/blend-api';
+import { site, drinkLines, formatCOP, perUnit, waLink } from '../data/site';
+import { cartEnabled, comboLabel, type Combo } from '../data/shop';
+import { API_URL, bundleUnitPrice } from '../data/blend-api';
 
-const pack = await getSixPack();
-const flowDrinks = (await getDrinks()).filter((d) => d.data.line === 'flow');
-// Cada sabor con la variante (lata) que entra en la caja, si viene del panel.
-const flavors = flowDrinks
-  .map((d) => ({ drink: d, variantId: d.data.variants.find((v) => pack?.variantIds.includes(v.id))?.id }))
-  .filter((f) => !pack || f.variantId);
+interface Props {
+  // Sin combo: el six pack Flow de site.ts (modo sin catálogo del panel).
+  combo?: Combo;
+  eyebrow?: string;
+  // Foto a la derecha en escritorio (para alternar en /combos).
+  flip?: boolean;
+  // Enlace "Ver todos los combos".
+  showAll?: boolean;
+}
+
+const { combo, eyebrow, flip = false, showAll = false } = Astro.props;
+const drinks = await getDrinks();
 const local = drinkLines.flow.formats.find((f) => f.id === 'six')!;
-const six: DrinkFormat = pack ? { ...local, price: pack.price, units: pack.size, detail: `${pack.size} × 330 ml` } : local;
-const builder = cartEnabled && !!pack && flavors.length > 0;
-const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
+
+const name = combo?.name ?? 'Six pack Flow';
+const slug = combo?.slug ?? 'six-pack-flow';
+const size = combo?.size ?? local.units ?? 6;
+const perItem = combo?.pricing === 'per_item';
+const price = combo?.price ?? local.price;
+const description = combo?.description || 'Seis latas de Flow combinadas a tu gusto: todas del mismo sabor o una mezcla de los tres.';
+
+// Sabores en el orden del catálogo, con la variante que entra en la caja y su precio dentro de ella.
+const flavors = combo
+  ? drinks.flatMap((d) => {
+      const v = d.data.variants.find((x) => combo.variantIds.includes(x.id));
+      return v ? [{ drink: d, variantId: v.id, unit: bundleUnitPrice(combo, v.id) }] : [];
+    })
+  : drinks.filter((d) => d.data.line === 'flow').map((d) => ({ drink: d, variantId: undefined, unit: 0 }));
+const accent = flavors[0]?.drink.data.flavor ?? '#DC4981';
+const volume = flavors[0]?.drink.data.volume ?? '330 ml';
+const fixedFormat = { id: 'combo', label: comboLabel(size), price, units: size };
+const builder = cartEnabled && !!combo && flavors.length > 0;
+const waText = `Hola Blend, quiero armar ${name}. Mis sabores: `;
+const titleId = `combo-${slug}-title`;
+const arches = flavors.slice(0, 3);
 ---
-<section class="pack section" aria-labelledby="pack-title">
+<section class="pack section" id={slug} aria-labelledby={titleId}>
   <div class="container">
-    <div class="pack-panel">
-      <div class="pack-visual" aria-hidden="true" data-reveal-children>
-        {flavors.map(({ drink: d }) => (
-          <div class="pack-can arch flavored" style={`--flavor:${d.data.flavor}`}>
-            <Photo src={d.data.card.src} alt="" focus={d.data.card.focus} fit={d.data.card.fit} sizes="(min-width: 1000px) 16vw, 30vw" maxWidth={700} />
+    <div class:list={['pack-panel', { 'is-flip': flip }]} style={`--accent:${accent}`}>
+      <div class:list={['pack-visual', { 'has-photo': combo?.image }]} data-count={arches.length} aria-hidden="true" data-reveal-children>
+        {combo?.image ? (
+          <div class="pack-photo arch">
+            <Photo src={combo.image.src} alt="" focus={combo.image.focus} fit={combo.image.fit} sizes="(min-width: 1000px) 40vw, 90vw" maxWidth={1100} />
           </div>
-        ))}
+        ) : (
+          arches.map(({ drink: d }) => (
+            <div class="pack-can arch flavored" style={`--flavor:${d.data.flavor}`}>
+              <Photo src={d.data.card.src} alt="" focus={d.data.card.focus} fit={d.data.card.fit} sizes="(min-width: 1000px) 16vw, 30vw" maxWidth={700} />
+            </div>
+          ))
+        )}
         <span class="pack-seal">
-          <span class="pack-seal-num">{six.units}</span>
+          <span class="pack-seal-num">{size}</span>
           <span class="pack-seal-txt">latas</span>
         </span>
       </div>
 
       <div class="pack-copy">
-        <p class="eyebrow" data-reveal="fade-up">Six pack · {drinkLines.flow.name}</p>
-        <h2 id="pack-title" class="h2" data-reveal="fade-up">Arma tu <em>caja</em> de seis.</h2>
-        <p class="body" data-reveal="fade-up">
-          Seis latas de Flow combinadas a tu gusto: todas del mismo sabor o una mezcla de los tres.
-        </p>
+        <p class="eyebrow" data-reveal="fade-up">{eyebrow ?? `Combo · ${size} latas`}</p>
+        <h2 id={titleId} class="h2" data-reveal="fade-up">{name}.</h2>
+        <p class="body" data-reveal="fade-up">{description}</p>
 
         {builder ? (
-          <div class="pack-builder" data-pack data-bundle={pack!.id} data-size={pack!.size} data-api={API_URL} data-reveal="fade-up">
-            <ul class="pack-picks" aria-label="Sabores de tu caja">
-              {flavors.map(({ drink: d, variantId }) => (
-                <li class="pack-pick flavored" style={`--flavor:${d.data.flavor}`} data-variant={variantId}>
-                  <a href={`/bebidas/${d.id}`} class="pack-pick-name"><span class="chip-dot"></span>{d.data.name}<small class="pack-out" hidden>Agotado</small></a>
+          <div
+            class="pack-builder"
+            data-pack
+            data-bundle={combo!.id}
+            data-size={size}
+            data-pricing={perItem ? 'per_item' : 'fixed'}
+            data-price={price}
+            data-api={API_URL}
+            data-reveal="fade-up"
+          >
+            <ul class="pack-picks" aria-label={`Sabores de ${name}`}>
+              {flavors.map(({ drink: d, variantId, unit }) => (
+                <li class="pack-pick flavored" style={`--flavor:${d.data.flavor}`} data-variant={variantId} data-unit={unit}>
+                  <a href={`/bebidas/${d.id}`} class="pack-pick-name">
+                    <span class="chip-dot"></span>
+                    <span>
+                      {d.data.name}
+                      {perItem && <small class="pack-unit">{formatCOP(unit)} c/u</small>}
+                    </span>
+                    <small class="pack-out" hidden>Agotado</small>
+                  </a>
                   <span class="pack-step" role="group" aria-label={`Latas de ${d.data.name}`}>
                     <button type="button" data-step="-1" aria-label={`Quitar una ${d.data.name}`}>−</button>
                     <output data-count>0</output>
@@ -54,21 +100,25 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
                 </li>
               ))}
             </ul>
-            <p class="small pack-left" aria-live="polite" data-left>Elige {pack!.size} latas.</p>
+            <p class="small pack-left" aria-live="polite" data-left>Elige {size} latas.</p>
           </div>
         ) : (
-          <ul class="pack-flavors" data-reveal="fade-up" aria-label="Sabores para tu caja">
-            {flavors.map(({ drink: d }) => (
+          <ul class="pack-flavors" data-reveal="fade-up" aria-label={`Sabores de ${name}`}>
+            {flavors.map(({ drink: d, unit }) => (
               <li class="flavored" style={`--flavor:${d.data.flavor}`}>
-                <a href={`/bebidas/${d.id}`} class="chip"><span class="chip-dot"></span>{d.data.name}</a>
+                <a href={`/bebidas/${d.id}`} class="chip">
+                  <span class="chip-dot"></span>{d.data.name}{perItem && ` · ${formatCOP(unit)}`}
+                </a>
               </li>
             ))}
           </ul>
         )}
 
         <div class="pack-buy" data-reveal="fade-up">
-          <p class="pack-price">{formatCOP(six.price)}</p>
-          <p class="small">{perUnit(six)} · {six.detail}</p>
+          <p class="pack-price" data-pack-total aria-live="polite">{perItem ? `Desde ${formatCOP(price)}` : formatCOP(price)}</p>
+          <p class="small" data-pack-detail>
+            {perItem ? `${size} latas · el total depende de los sabores que elijas` : `${perUnit(fixedFormat)} · ${size} × ${volume}`}
+          </p>
         </div>
         <div class="pack-cta" data-reveal="fade-up">
           {builder ? (
@@ -76,7 +126,11 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
           ) : (
             <a href={waLink(waText)} class="btn btn-solid" target="_blank" rel="noopener">Armar mi caja</a>
           )}
-          <p class="small">Entregamos frías en {site.deliveryArea}.</p>
+          {showAll ? (
+            <a href="/combos" class="link-arrow">Ver todos los combos</a>
+          ) : (
+            <p class="small">Entregamos frías en {site.deliveryArea}.</p>
+          )}
         </div>
         {builder && (
           <p class="small pack-added" role="status" data-pack-added hidden>
@@ -101,26 +155,41 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
     padding: clamp(28px, 5vw, 72px);
     border-radius: var(--r-lg);
     background:
-      radial-gradient(70% 80% at 18% 70%, color-mix(in oklab, var(--pink) 14%, var(--cream)), transparent 70%),
+      radial-gradient(70% 80% at 18% 70%, color-mix(in oklab, var(--accent) 14%, var(--cream)), transparent 70%),
+      var(--cream);
+  }
+  .pack-panel.is-flip {
+    background:
+      radial-gradient(70% 80% at 82% 70%, color-mix(in oklab, var(--accent) 14%, var(--cream)), transparent 70%),
       var(--cream);
   }
 
-  /* Tres arcos en abanico: el del medio sube, como una caja abierta. */
+  /* Arcos en abanico (hasta tres): el del medio sube, como una caja abierta. */
   .pack-visual {
     position: relative;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
     gap: clamp(8px, 1.4vw, 16px);
     align-items: end;
     padding-top: 8%;
   }
+  .pack-visual[data-count='1'] { --cols: 1; max-width: 360px; justify-self: center; width: 100%; }
+  .pack-visual[data-count='2'] { --cols: 2; max-width: 520px; justify-self: center; width: 100%; }
+  .pack-visual.has-photo { --cols: 1; }
   .pack-can {
     --arch-v: 37.5%;
     aspect-ratio: 3 / 4;
     background: var(--tint);
     box-shadow: 0 30px 50px -34px color-mix(in oklab, var(--flavor) 60%, var(--ink));
   }
-  .pack-can:nth-child(2) { translate: 0 -12%; }
+  .pack-visual[data-count='3'] .pack-can:nth-child(2) { translate: 0 -12%; }
+  .pack-visual[data-count='2'] .pack-can:nth-child(2) { translate: 0 -8%; }
+  .pack-photo {
+    --arch-v: 30%;
+    aspect-ratio: 5 / 6;
+    background: color-mix(in oklab, var(--accent) 18%, var(--cream));
+    box-shadow: 0 30px 50px -34px color-mix(in oklab, var(--accent) 60%, var(--ink));
+  }
   .pack-seal {
     position: absolute;
     right: -2%;
@@ -139,7 +208,7 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
   .pack-seal-txt { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
 
   .pack-copy { display: grid; gap: 18px; justify-items: start; }
-  .pack-copy .h2 { max-width: 12ch; }
+  .pack-copy .h2 { max-width: 14ch; }
   .pack-flavors { display: flex; flex-wrap: wrap; gap: 8px; }
   .pack-flavors .chip { transition: border-color .3s var(--ease); }
   .pack-flavors .chip:hover { border-color: var(--ink); }
@@ -155,6 +224,7 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
     border-bottom: 1px solid var(--line);
   }
   .pack-pick-name { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; }
+  .pack-unit { display: block; font-size: 12px; font-weight: 400; color: var(--ink-2); }
   .pack-step {
     display: inline-flex;
     align-items: center;
@@ -196,6 +266,8 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
 
   @media (min-width: 1000px) {
     .pack-panel { grid-template-columns: 1.1fr 1fr; }
+    .pack-panel.is-flip { grid-template-columns: 1fr 1.1fr; }
+    .pack-panel.is-flip .pack-visual { order: 2; }
   }
 </style>
 
@@ -203,15 +275,23 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
   import { addBundle } from '../scripts/cart';
   import { loadStock } from '../scripts/stock';
 
+  const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
   document.querySelectorAll<HTMLElement>('[data-pack]').forEach((box) => {
     const panel = box.closest('.pack-copy');
     const size = Number(box.dataset.size);
+    const perItem = box.dataset.pricing === 'per_item';
+    const price = Number(box.dataset.price);
     const bundleId = box.dataset.bundle!;
     const rows = [...box.querySelectorAll<HTMLElement>('[data-variant]')];
     const left = box.querySelector<HTMLElement>('[data-left]');
+    const totalBox = panel?.querySelector<HTMLElement>('[data-pack-total]');
+    const detailBox = panel?.querySelector<HTMLElement>('[data-pack-detail]');
     const add = panel?.querySelector<HTMLButtonElement>('[data-pack-add]');
     const added = panel?.querySelector<HTMLElement>('[data-pack-added]');
     const counts = new Map(rows.map((r) => [r.dataset.variant!, 0]));
+    const units = new Map(rows.map((r) => [r.dataset.variant!, Number(r.dataset.unit)]));
+    const initialDetail = detailBox?.textContent ?? '';
     // Latas disponibles por sabor (sin dato = sin límite).
     const limits = new Map<string, number>();
 
@@ -226,6 +306,12 @@ const waText = 'Hola Blend, quiero armar un six pack de Flow. Mis sabores: ';
       const missing = size - total;
       if (left) left.textContent = missing === size ? `Elige ${size} latas.` : missing === 1 ? 'Te falta 1 lata.' : missing > 0 ? `Te faltan ${missing} latas.` : 'Tu caja está completa.';
       if (add) add.disabled = missing !== 0;
+      // Con precio por sabor, el total se arma con lo elegido (el servidor lo vuelve a calcular al pagar).
+      if (perItem && totalBox && detailBox) {
+        const sum = [...counts].reduce((s, [id, qty]) => s + qty * (units.get(id) ?? 0), 0);
+        totalBox.textContent = total === 0 ? `Desde ${cop.format(price)}` : cop.format(sum);
+        detailBox.textContent = total === 0 ? initialDetail : `${total} de ${size} latas`;
+      }
     };
 
     rows.forEach((r) => {

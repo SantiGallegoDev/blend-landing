@@ -8,6 +8,7 @@ import { cartEnabled } from '../data/shop';
 const path = Astro.url.pathname;
 const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
 const secondary = [
+  { label: 'Combos', href: '/combos' },
   { label: 'Nosotros', href: '/nosotros' },
   { label: 'Negocios', href: '/negocios' },
   { label: 'Ayuda', href: '/ayuda' },

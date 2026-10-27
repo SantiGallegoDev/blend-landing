@@ -7,7 +7,7 @@ import PaymentMethods from '../../components/PaymentMethods.astro';
 import DrinkCard from '../../components/DrinkCard.astro';
 import { getDrinks } from '../../data/catalog';
 import { site, drinkLines, formatCOP, perUnit, waLink, type DrinkFormat } from '../../data/site';
-import { cartEnabled, drinkFormats } from '../../data/shop';
+import { cartEnabled, comboForDrink, drinkFormats } from '../../data/shop';
 import { API_URL } from '../../data/blend-api';
 
 export const getStaticPaths = (async () => {
@@ -22,6 +22,7 @@ const related = drinks.filter((x) => x.id !== drink.id);
 
 // Presentaciones: variantes y six pack del panel, o las de la línea en site.ts.
 const formats = await drinkFormats(drink);
+const combo = await comboForDrink(drink);
 const first = formats[0];
 // Con carrito, el six pack de esta ficha se llena con latas de este sabor.
 const canVariant = formats.find((f) => f.id === 'lata')?.variantId ?? first.variantId;
@@ -118,7 +119,7 @@ if (d.price) {
             )}
             {packNote && (
               <p class="small pdp-pack-note">
-                {packNote} <a href="/bebidas#caja">Combinar sabores</a>
+                {packNote} <a href={combo ? `/combos#${combo.slug}` : '/combos'}>Combinar sabores</a>
               </p>
             )}
 

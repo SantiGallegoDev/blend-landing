@@ -2,9 +2,9 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Photo from '../../components/Photo.astro';
 import DrinkGrid from '../../components/DrinkGrid.astro';
-import SixPack from '../../components/SixPack.astro';
+import ComboBuilder from '../../components/ComboBuilder.astro';
 import { getDrinks } from '../../data/catalog';
-import { flowFormats } from '../../data/shop';
+import { flowFormats, getFeaturedCombo } from '../../data/shop';
 import { site, drinkLines, formatCOP, perUnit } from '../../data/site';
 import sunset from '../../assets/bebidas/sunset/terrazo-durazno.png';
 
@@ -29,7 +29,7 @@ const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
       </p>
       <div class="cat-hero-actions" data-rise="4">
         <a class="btn btn-solid" href="#todas">Elige tu sabor</a>
-        <a class="link-arrow" href="#caja">Arma tu caja de seis</a>
+        <a class="link-arrow" href="/combos">Ver los combos</a>
       </div>
     </div>
   </section>
@@ -75,7 +75,7 @@ const fromPrice = Math.min(...drinks.map((d) => d.data.price ?? Infinity));
     </div>
   </section>
 
-  <div id="caja"><SixPack /></div>
+  <ComboBuilder combo={await getFeaturedCombo()} showAll />
 
   <section class="container section-sm">
     <div class="cat-delivery">
